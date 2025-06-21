@@ -19,21 +19,21 @@ export interface UseTabbedEditorReturn {
   api: TabbedNoteEditorAPI;
 }
 
-// SIMPLIFIED: Much cleaner implementation
 export const useTabbedEditor = (
   onSave?: (path: string, content: string) => Promise<boolean>
 ): UseTabbedEditorReturn => {
   const [tabState, tabActions] = useTabManager();
   const { openTabs, activeTabId } = tabState;
 
+  // Get active tab with live content
   const activeTab = useMemo(() => {
     return tabActions.getActiveTab();
-  }, [tabActions.getActiveTab]);
+  }, [tabActions, activeTabId]); // Added activeTabId dependency for proper updates
 
   const handleContentChange = useCallback((newContent: string) => {
     if (!activeTabId) return;
     tabActions.updateTabContent(activeTabId, newContent);
-  }, [activeTabId, tabActions.updateTabContent]);
+  }, [activeTabId, tabActions]);
 
   const handleSave = useCallback(async () => {
     if (!activeTab || !onSave) return;
@@ -49,7 +49,7 @@ export const useTabbedEditor = (
     } catch (err) {
       console.error('Failed to save file:', err);
     }
-  }, [activeTab, onSave, tabActions.markTabClean, tabActions.getCurrentContent]);
+  }, [activeTab, onSave, tabActions]);
 
   const api: TabbedNoteEditorAPI = useMemo(() => ({
     openFile: (path, content) => {
@@ -59,12 +59,14 @@ export const useTabbedEditor = (
     saveActiveFile: handleSave,
     getCurrentFile: () => {
       if (!activeTab) return null;
-      return { path: activeTab.path, content: activeTab.content };
+      // FIXED: Always return live content
+      const liveContent = tabActions.getCurrentContent(activeTab.id);
+      return { path: activeTab.path, content: liveContent };
     },
     hasUnsavedChanges: () => {
       return openTabs.some(tab => tab.isDirty);
     },
-  }), [tabActions.openTab, handleSave, activeTab, openTabs]);
+  }), [tabActions, handleSave, activeTab, openTabs]);
 
   const TabbedNoteEditor: React.FC<TabbedNoteEditorProps> = React.memo(({ className = '' }) => {
     if (openTabs.length === 0) {
@@ -91,7 +93,7 @@ export const useTabbedEditor = (
         {activeTab && (
           <div className="flex-1">
             <Editor
-              key={activeTab.path} // Simple key based on path
+              key={`${activeTab.path}-${activeTab.id}`} // More specific key to ensure proper remounting
               initialContent={activeTab.content}
               filePath={activeTab.path}
               onChange={handleContentChange}

@@ -19,11 +19,22 @@ declare global {
       onWorkspaceChanged?: (callback: (workspace: string) => void) => void;
 
       // Window control operations
-      minimizeWindow: () => Promise<void>;
-      maximizeWindow: () => Promise<boolean>;
-      closeWindow: () => Promise<void>;
-      isWindowMaximized: () => Promise<boolean>;
-    };
+        minimizeWindow: () => Promise<void>;
+  maximizeWindow: () => Promise<boolean>;
+  closeWindow: () => Promise<void>;
+  isWindowMaximized: () => Promise<boolean>;
+
+  terminal: {
+    create: (id: string, options: { cols: number, rows: number, cwd?: string }) => Promise<string>;
+    write: (id: string, data: string) => Promise<void>;
+    resize: (id: string, cols: number, rows: number) => Promise<void>;
+    close: (id: string) => Promise<void>;
+    list: () => Promise<string[]>;
+    onData: (callback: (id: string, data: string) => void) => void;
+    onExit: (callback: (id: string, code: number, signal?: number) => void) => void;
+    removeListeners: () => void;
+  };
+};
     electronAPI: {
       notes: {
         create: (note: any) => Promise<{ success: boolean; error?: string }>;

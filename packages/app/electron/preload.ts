@@ -28,6 +28,28 @@ contextBridge.exposeInMainWorld('api', {
   maximizeWindow: () => ipcRenderer.invoke('window:maximize'),
   closeWindow: () => ipcRenderer.invoke('window:close'),
   isWindowMaximized: () => ipcRenderer.invoke('window:isMaximized'),
+
+  // Terminal operations
+  terminal: {
+    create: (id: string, options: { cols: number, rows: number, cwd?: string }) => 
+      ipcRenderer.invoke('terminal:create', id, options),
+    write: (id: string, data: string) => ipcRenderer.invoke('terminal:write', id, data),
+    resize: (id: string, cols: number, rows: number) => 
+      ipcRenderer.invoke('terminal:resize', id, cols, rows),
+    close: (id: string) => ipcRenderer.invoke('terminal:close', id),
+    list: () => ipcRenderer.invoke('terminal:list'),
+    onData: (callback: (id: string, data: string) => void) => {
+      ipcRenderer.on('terminal:data', (_: any, id: string, data: string) => callback(id, data));
+    },
+    onExit: (callback: (id: string, code: number, signal?: number) => void) => {
+      ipcRenderer.on('terminal:exit', (_: any, id: string, code: number, signal?: number) => 
+        callback(id, code, signal));
+    },
+    removeListeners: () => {
+      ipcRenderer.removeAllListeners('terminal:data');
+      ipcRenderer.removeAllListeners('terminal:exit');
+    },
+  },
 });
 
 // Keep electronAPI for backwards compatibility

@@ -22,7 +22,7 @@ export interface TabManagerActions {
   markTabClean: (id: string) => void;
   isTabOpen: (path: string) => boolean;
   getActiveTab: () => TabData | null;
-  getCurrentContent: (id: string) => string; // Get live content without triggering rerenders
+  getCurrentContent: (id: string) => string;
 }
 
 export const useTabManager = (): [TabManagerState, TabManagerActions] => {
@@ -85,7 +85,6 @@ export const useTabManager = (): [TabManagerState, TabManagerActions] => {
     });
   }, []);
 
-  // CRITICAL: This only updates refs, NO React state updates = NO rerenders
   const updateTabContent = useCallback((id: string, content: string) => {
     liveContentRef.current.set(id, content);
     isDirtyRef.current.set(id, true);
@@ -95,15 +94,21 @@ export const useTabManager = (): [TabManagerState, TabManagerActions] => {
   const markTabClean = useCallback((id: string) => {
     isDirtyRef.current.set(id, false);
     
+    // FIXED: Update the actual tab content when marking clean
     setOpenTabs(prevTabs => {
       const index = prevTabs.findIndex(tab => tab.id === id);
       if (index === -1) return prevTabs;
 
       const current = prevTabs[index];
-      if (!current.isDirty) return prevTabs;
+      const liveContent = liveContentRef.current.get(id) || current.content;
 
+      // Update both isDirty and content to match the live content
       const updated = [...prevTabs];
-      updated[index] = { ...current, isDirty: false };
+      updated[index] = { 
+        ...current, 
+        isDirty: false,
+        content: liveContent // CRITICAL: Sync content with live content
+      };
       return updated;
     });
   }, []);
@@ -118,11 +123,11 @@ export const useTabManager = (): [TabManagerState, TabManagerActions] => {
     const tab = openTabs.find(tab => tab.id === activeTabId);
     if (!tab) return null;
     
-    // Return tab with live content
+    // Always return tab with live content from refs
     return {
       ...tab,
       content: liveContentRef.current.get(activeTabId) || tab.content,
-      isDirty: isDirtyRef.current.get(activeTabId) || tab.isDirty
+      isDirty: isDirtyRef.current.get(activeTabId) || false
     };
   }, [openTabs, activeTabId]);
 
@@ -130,8 +135,16 @@ export const useTabManager = (): [TabManagerState, TabManagerActions] => {
     return liveContentRef.current.get(id) || '';
   }, []);
 
+  // FIXED: Use a more stable state calculation
   const state = useMemo<TabManagerState>(() => ({
-    openTabs,
+    openTabs: openTabs.map(tab => ({
+      ...tab,
+      // Only show live content for the active tab to prevent unnecessary updates
+      content: tab.id === activeTabId ? 
+        (liveContentRef.current.get(tab.id) || tab.content) : 
+        tab.content,
+      isDirty: isDirtyRef.current.get(tab.id) || false
+    })),
     activeTabId,
   }), [openTabs, activeTabId]);
 

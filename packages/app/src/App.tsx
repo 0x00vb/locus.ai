@@ -1,6 +1,6 @@
 /// <reference path="./preload.d.ts" />
 
-import { useRef, useMemo } from 'react';
+import { useRef, useMemo, useEffect } from 'react';
 import { useAppStore } from '@notty/core';
 import { 
   TreeView, 
@@ -25,6 +25,9 @@ import { ContextMenu } from './components/ContextMenu';
 import { CreateInput } from './components/CreateInput';
 import { RenameInput } from './components/RenameInput';
 import { ResizeHandle } from './components/ResizeHandle';
+import { SlideUpPanel } from './components/SlideUpPanel';
+import { TerminalView } from './components/TerminalView';
+import { useTerminal } from './hooks/useTerminal';
 
 const getLanguageFromExtension = (filePath: string): string => {
   const ext = filePath.split('.').pop()?.toLowerCase() || '';
@@ -115,7 +118,23 @@ function AppContent() {
     onExpandFolder: () => {},
   });
 
+  const [terminalState, terminalActions] = useTerminal();
+
   const sidebarRef = useRef<HTMLDivElement>(null);
+
+  // Add keyboard shortcuts for terminal
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ctrl+` (backtick) or Ctrl+Shift+` to toggle terminal
+      if ((e.ctrlKey || e.metaKey) && e.key === '`') {
+        e.preventDefault();
+        terminalActions.toggle();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [terminalActions]);
 
   return (
     <div className="flex flex-col h-screen bg-background text-foreground">
@@ -197,17 +216,32 @@ function AppContent() {
         </main>
       </div>
 
+      {/* Terminal Panel - Above status bar */}
+      <SlideUpPanel
+        isOpen={terminalState.isOpen}
+        onToggle={terminalActions.toggle}
+        height={terminalState.height}
+        title="Terminal"
+        maxHeight={600}
+        defaultHeight={300}
+      >
+        <TerminalView workspaceDirectory={currentWorkspace} />
+      </SlideUpPanel>
+
+      {/* Status Bar with Drag Handle */}
+      <StatusBar 
+        contentStats={statusBarData.contentStats}
+        language={statusBarData.language}
+        terminalState={terminalState}
+        terminalActions={terminalActions}
+      />
+
       <ContextMenu
         state={contextMenuState}
         contextMenuRef={contextMenuRef}
         onDelete={contextMenuActions.handleDelete}
         onRename={contextMenuActions.handleRename}
         onCreateInFolder={contextMenuActions.handleCreateInFolder}
-      />
-
-      <StatusBar 
-        contentStats={statusBarData.contentStats}
-        language={statusBarData.language}
       />
     </div>
   );

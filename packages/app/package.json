@@ -22,10 +22,15 @@
   "dependencies": {
     "@notty/core": "file:../core",
     "@notty/ui": "file:../ui",
+    "@xterm/addon-fit": "^0.10.0",
+    "@xterm/xterm": "^5.5.0",
     "electron-updater": "^6.1.7",
     "lucide-react": "^0.515.0",
+    "node-pty": "^1.1.0-beta34",
     "react": "^18.2.0",
-    "react-dom": "^18.2.0"
+    "react-dom": "^18.2.0",
+    "xterm": "^5.3.0",
+    "xterm-addon-fit": "^0.8.0"
   },
   "devDependencies": {
     "@types/node": "^20.11.17",

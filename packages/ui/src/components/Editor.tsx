@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import CodeEditor from '@uiw/react-textarea-code-editor';
 import { useTheme } from '../theme/ThemeProvider';
 
@@ -47,7 +47,6 @@ export interface EditorProps {
   className?: string;
 }
 
-// ULTRA-STABLE Editor that never loses focus
 export const Editor: React.FC<EditorProps> = ({ 
   initialContent, 
   filePath, 
@@ -57,37 +56,27 @@ export const Editor: React.FC<EditorProps> = ({
 }) => {
   const [content, setContent] = useState(initialContent);
   const theme = useTheme();
-  const prevFilePathRef = useRef(filePath);
-  
-  // Stable function refs to prevent recreating callbacks
-  const onChangeRef = useRef(onChange);
-  const onSaveRef = useRef(onSave);
-  onChangeRef.current = onChange;
-  onSaveRef.current = onSave;
 
-  // Only update content when switching files
+  // Update content when initialContent changes (file switching)
   useEffect(() => {
-    if (filePath !== prevFilePathRef.current) {
-      setContent(initialContent);
-      prevFilePathRef.current = filePath;
-    }
-  }, [filePath, initialContent]);
+    setContent(initialContent);
+  }, [initialContent]);
 
-  // ULTRA-STABLE: These callbacks never change, preventing rerenders
+  // Stable callbacks to prevent rerenders
   const handleChange = useCallback((e: any) => {
     const newContent = e.target.value;
     setContent(newContent);
-    onChangeRef.current(newContent);
-  }, []); // Empty deps = never changes
+    onChange(newContent);
+  }, [onChange]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if ((e.ctrlKey || e.metaKey) && e.key === 's') {
       e.preventDefault();
-      onSaveRef.current();
+      onSave();
     }
-  }, []); // Empty deps = never changes
+  }, [onSave]);
 
-  // Memoize all computed values
+  // Memoize computed values for performance
   const computedValues = useMemo(() => {
     const ext = filePath.split('.').pop()?.toLowerCase() || '';
     const language = getLanguageFromExtension(filePath);
@@ -106,13 +95,7 @@ export const Editor: React.FC<EditorProps> = ({
     
     const colorMode: 'dark' | 'light' = theme.isDark ? 'dark' : 'light';
     
-    return {
-      language,
-      font,
-      backgroundColor,
-      foregroundColor,
-      colorMode,
-    };
+    return { language, font, backgroundColor, foregroundColor, colorMode };
   }, [filePath, theme.currentTheme.colors.editorBackground, theme.currentTheme.colors.editorForeground, theme.isDark]);
 
   const editorStyle = useMemo(() => ({
@@ -122,8 +105,8 @@ export const Editor: React.FC<EditorProps> = ({
     backgroundColor: computedValues.backgroundColor,
     color: computedValues.foregroundColor,
     height: '100%',
-    width: '100%'
-  }), [computedValues.font, computedValues.backgroundColor, computedValues.foregroundColor]);
+    width: '100%',
+  }), [computedValues]);
 
   const lineCount = useMemo(() => content.split('\n').length, [content]);
 

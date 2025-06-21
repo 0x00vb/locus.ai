@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url';
 import * as path from 'node:path';
 import * as os from 'node:os';
 import { FileSystemService } from '../../core/dist/main.js';
+import { TerminalService } from './terminal.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -25,6 +26,9 @@ let win: BrowserWindow | null;
 // Initialize FileSystemService with default notes directory
 let currentWorkspace = path.join(os.homedir(), 'Documents', 'Notty');
 let fileSystemService = new FileSystemService(currentWorkspace);
+
+// Initialize TerminalService
+let terminalService = new TerminalService();
 
 function createWindow() {
   const distPath = process.env.DIST || path.join(__dirname, '../dist');
@@ -387,4 +391,47 @@ ipcMain.handle('window:close', () => {
 
 ipcMain.handle('window:isMaximized', () => {
   return win ? win.isMaximized() : false;
+});
+
+// Terminal IPC handlers
+ipcMain.handle('terminal:create', async (_, id: string, options: { cols: number, rows: number, cwd?: string }) => {
+  try {
+    const terminalId = terminalService.createTerminal(id, options);
+    
+    // Set up data listener
+    terminalService.onTerminalData(id, (data) => {
+      win?.webContents.send('terminal:data', id, data);
+    });
+    
+    // Set up exit listener
+    terminalService.onTerminalExit(id, (code, signal) => {
+      win?.webContents.send('terminal:exit', id, code, signal);
+    });
+    
+    return terminalId;
+  } catch (error) {
+    console.error('Failed to create terminal:', error);
+    throw error;
+  }
+});
+
+ipcMain.handle('terminal:write', (_, id: string, data: string) => {
+  terminalService.writeToTerminal(id, data);
+});
+
+ipcMain.handle('terminal:resize', (_, id: string, cols: number, rows: number) => {
+  terminalService.resizeTerminal(id, cols, rows);
+});
+
+ipcMain.handle('terminal:close', (_, id: string) => {
+  terminalService.closeTerminal(id);
+});
+
+ipcMain.handle('terminal:list', () => {
+  return terminalService.getActiveTerminals();
+});
+
+// Clean up terminals on app quit
+app.on('before-quit', () => {
+  terminalService.closeAllTerminals();
 }); 

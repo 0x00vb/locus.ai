@@ -22,7 +22,7 @@ export default defineConfig({
             minify: process.env.NODE_ENV === 'production',
             outDir: 'dist-electron',
             rollupOptions: {
-              external: ['electron'],
+              external: ['electron', 'node-pty'],
             },
           },
           resolve: {
@@ -47,7 +47,7 @@ export default defineConfig({
             minify: process.env.NODE_ENV === 'production',
             outDir: 'dist-electron',
             rollupOptions: {
-              external: ['electron'],
+              external: ['electron', 'node-pty'],
             },
           },
           resolve: {
