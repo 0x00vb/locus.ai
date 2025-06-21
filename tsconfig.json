@@ -9,16 +9,20 @@
     "isolatedModules": true,
     "noEmit": true,
     "jsx": "react-jsx",
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
     "strict": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
     "baseUrl": ".",
     "paths": {
-      "@notty/core": ["packages/core/src"],
-      "@notty/core/*": ["packages/core/src/*"]
+      "@app/*": ["packages/app/*"],
+      "@domains/*": ["packages/domains/*"],
+      "@features/*": ["packages/features/*"],
+      "@shared/*": ["packages/shared/*"]
     }
   },
-  "include": ["packages/*/src/**/*"],
-  "exclude": ["node_modules", "dist", "build"]
+  "include": ["packages/**/*"],
+  "exclude": ["node_modules", "dist", "build", "packages/*/dist", "packages/*/build"]
 } 

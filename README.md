@@ -1,208 +1,236 @@
 # Notty - Cross-Platform Desktop Notes Application
 
-A modern, minimalistic desktop notes application built with Electron, React, and TypeScript. Features a file-tree style organization system with keyboard-friendly navigation and clean interface.
+A modern, cross-platform desktop notes application built with Electron, React, and TypeScript, following Screaming Architecture principles.
 
-## Features
+## 🏗️ Architecture Overview
 
-- **Modern Stack**: Built with Electron, React, Vite, TypeScript, and TailwindCSS
-- **File Tree Management**: Organize notes in folders with drag-and-drop support
-- **Theme Support**: Light/Dark/System theme modes
-- **Cross-Platform**: Runs on Windows, macOS, and Linux
-- **Hot Reload**: Fast development with Vite's hot module replacement
-- **Local Storage**: All notes stored locally with optional cloud sync (future)
+This project follows **Screaming Architecture** principles, where the folder structure immediately reveals what the application does, not what technology it uses.
 
-## Tech Stack
+### 📁 Directory Structure
 
-- **Frontend**: React 18, TailwindCSS
-- **Desktop Framework**: Electron 28
-- **Build Tool**: Vite 5
-- **State Management**: Zustand
-- **Language**: TypeScript
-- **Linting**: ESLint + Prettier
-- **Package Manager**: npm workspaces
+```
+packages/
+├── app/                    # Electron application bootstrap
+│   ├── main/              # Electron main process
+│   │   └── main.ts        # Main process entry point
+│   ├── preload/           # Electron preload scripts  
+│   │   └── preload.ts     # Preload script for renderer
+│   ├── renderer/          # React renderer application
+│   │   ├── App.tsx        # Main React application
+│   │   ├── index.tsx      # React DOM entry point
+│   │   ├── main.css       # Global styles
+│   │   └── preload.d.ts   # TypeScript definitions
+│   └── package.json       # Electron app dependencies
 
-## Development Setup
+├── domains/               # Core business domains (what the app does)
+│   ├── editor/            # Note editing domain
+│   │   ├── operations.ts  # Editor business operations
+│   │   ├── editor.tsx     # Editor component
+│   │   └── types.ts       # Editor domain types
+│   ├── fileSystem/        # File system management domain
+│   │   └── filesystem.ts  # File operations and management
+│   └── workspace/         # Workspace management domain
+│       ├── store.ts       # Workspace state management
+│       ├── operations.ts  # Workspace operations
+│       └── types.ts       # Workspace domain types
+
+├── features/              # User-facing features (how users interact)
+│   ├── tabs/              # Tab management feature
+│   │   └── TabbedNoteEditor.tsx
+│   ├── treeView/          # File tree navigation feature
+│   │   ├── TreeView.tsx   # Tree view component
+│   │   ├── context-menu.ts
+│   │   ├── creation.ts
+│   │   ├── rename.ts
+│   │   └── types.ts
+│   ├── tabBar/            # Tab bar and sidebar features
+│   │   ├── TabBar.tsx
+│   │   ├── TabItem.tsx
+│   │   ├── drag-drop.ts
+│   │   ├── resize.ts
+│   │   └── types.ts
+│   ├── statusBar/         # Status bar feature
+│   │   └── StatusBar.tsx
+│   └── terminal/          # Integrated terminal feature
+│       ├── terminal-view.tsx
+│       └── terminal-hooks.ts
+
+├── shared/                # Reusable components and utilities
+│   ├── components/        # Generic UI components
+│   │   ├── TitleBar.tsx
+│   │   ├── ContextMenu.tsx
+│   │   ├── CreateInput.tsx
+│   │   ├── RenameInput.tsx
+│   │   ├── ResizeHandle.tsx
+│   │   └── SlideUpPanel.tsx
+│   ├── hooks/             # Reusable React hooks
+│   ├── utils/             # Utility functions and types
+│   │   ├── types.ts
+│   │   ├── utils.ts
+│   │   └── workspace.ts
+│   ├── theme/             # Theme management
+│   │   └── ThemeProvider.tsx
+│   └── services/          # Shared services
+│       ├── lsp-server.ts  # Language Server Protocol
+│       └── terminal.ts    # Terminal service
+
+└── config/                # Project-wide configuration
+    ├── vite.config.ts     # Vite build configuration
+    ├── tailwind.config.js # Tailwind CSS configuration
+    ├── postcss.config.js  # PostCSS configuration
+    └── tsconfig.app.json  # TypeScript configuration
+```
+
+## 🎯 Architectural Principles
+
+### Screaming Architecture
+- **Domain-driven structure**: The folder names scream what the application does (notes, workspace, file management)
+- **Feature-based organization**: User-facing capabilities are clearly separated
+- **Technology-agnostic naming**: Folders represent business concepts, not frameworks
+
+### Module Organization
+
+#### 🏢 **Domains** (`packages/domains/`)
+Core business logic and rules. These represent the fundamental concepts of what Notty does:
+- **Editor**: Everything related to note editing and content management
+- **FileSystem**: File operations, paths, and storage management  
+- **Workspace**: Workspace state, configuration, and management
+
+#### ⚡ **Features** (`packages/features/`)
+User-facing functionality. These represent how users interact with the application:
+- **TreeView**: File tree navigation and folder management
+- **Tabs**: Tab management and navigation
+- **TabBar**: Tab bar UI and sidebar resizing
+- **StatusBar**: Application status display
+- **Terminal**: Integrated terminal functionality
+
+#### 🧱 **Shared** (`packages/shared/`)
+Reusable components, utilities, and services:
+- **Components**: Generic UI components used across features
+- **Hooks**: Reusable React hooks
+- **Utils**: Utility functions and shared types
+- **Theme**: Theme management and styling
+- **Services**: Shared services (LSP, terminal backend)
+
+#### ⚙️ **Config** (`packages/config/`)
+Build tools and project-wide configuration files
+
+## 🚀 Getting Started
 
 ### Prerequisites
-
 - Node.js >= 18.0.0
 - npm >= 9.0.0
 
-### Installation
+### Installation & Development
 
-1. Clone the repository:
 ```bash
-git clone <repository-url>
-cd notty
-```
-
-2. Install dependencies:
-```bash
+# Install dependencies
 npm install
-```
 
-3. Start development server:
-```bash
-npm run dev
-```
-
-This will start the Vite development server and launch the Electron app with hot reload enabled.
-
-### Development Scripts
-
-```bash
-# Start development server with hot reload
+# Start development server
 npm run dev
 
-# Build for production (all platforms)
+# Build for production
 npm run build
-
-# Build for development (faster, unpackaged)
-npm run build:all
 
 # Lint code
 npm run lint
 
-# Fix linting issues
-npm run lint:fix
-
-# Format code with Prettier
+# Format code  
 npm run format
-
-# Type check without building
-npm run type-check
-
-# Clean all build artifacts
-npm run clean
 ```
 
-## Project Structure
+## 🛠️ Development Guide
 
-```
-notty/
-├── packages/
-│   ├── core/                 # Shared utilities and types
-│   │   ├── src/
-│   │   │   ├── types.ts     # TypeScript interfaces
-│   │   │   ├── store.ts     # Zustand state management
-│   │   │   ├── utils.ts     # Utility functions
-│   │   │   └── index.ts     # Package exports
-│   │   └── package.json
-│   │
-│   └── app/                  # Main Electron application
-│       ├── electron/
-│       │   ├── main.ts      # Electron main process
-│       │   └── preload.ts   # Preload script for IPC
-│       ├── src/
-│       │   ├── App.tsx      # Main React component
-│       │   ├── main.tsx     # React entry point
-│       │   └── index.css    # TailwindCSS styles
-│       ├── public/          # Static assets
-│       ├── vite.config.ts   # Vite configuration
-│       ├── tailwind.config.js
-│       └── package.json
-│
-├── package.json             # Root package.json (monorepo)
-├── tsconfig.json           # Root TypeScript config
-├── .eslintrc.json          # ESLint configuration
-├── .prettierrc             # Prettier configuration
-└── README.md
-```
+### Adding a New Feature
 
-## Building for Production
+When adding a new user-facing feature:
 
-### Build for Current Platform
-```bash
-npm run build
-```
+1. **Create the feature directory**: `packages/features/newFeature/`
+2. **Add the main component**: `packages/features/newFeature/NewFeature.tsx`
+3. **Create supporting files**: hooks, types, operations as needed
+4. **Export from index**: `packages/features/newFeature/index.ts`
+5. **Import in App.tsx**: Use the `@features/newFeature` alias
 
-This creates distributable packages in `packages/app/build/`.
+### Adding a New Domain
 
-### Build for Specific Platforms
+When adding new business logic:
 
-The build configuration supports:
-- **Windows**: NSIS installer (.exe)
-- **macOS**: DMG package (.dmg) for x64 and ARM64
-- **Linux**: AppImage and Debian package (.deb)
+1. **Create the domain directory**: `packages/domains/newDomain/`
+2. **Add core logic**: operations, state management, types
+3. **Export from index**: `packages/domains/newDomain/index.ts` 
+4. **Import where needed**: Use the `@domains/newDomain` alias
 
-### Manual Distribution Build
-```bash
-cd packages/app
-npm run build:dir  # Creates unpacked directory for testing
-npm run dist       # Creates distribution packages
+### Adding Shared Components
+
+For reusable UI components:
+
+1. **Add to shared**: `packages/shared/components/NewComponent.tsx`
+2. **Export from index**: Update `packages/shared/components/index.ts`
+3. **Import anywhere**: Use `@shared/components`
+
+## 🎨 Import Aliases
+
+The project uses TypeScript path mapping for clean imports:
+
+```typescript
+// Domains (business logic)
+import { useAppStore } from '@domains/workspace';
+import { NoteOperations } from '@domains/editor';
+
+// Features (user interactions)  
+import { TreeView } from '@features/treeView';
+import { StatusBar } from '@features/statusBar';
+
+// Shared utilities
+import { TitleBar } from '@shared/components';
+import { useTerminal } from '@shared/hooks';
+
+// App-specific
+import { SomeComponent } from '@app/renderer';
+
+// Configuration
+import { tailwindConfig } from '@config/tailwind.config';
 ```
 
-## Configuration
+## 📝 Key Benefits
 
-### Application Settings
+1. **Immediate Understanding**: New developers can quickly understand what the app does
+2. **Feature Isolation**: Features are self-contained and easy to modify
+3. **Domain Clarity**: Business logic is separated from UI concerns
+4. **Scalability**: Easy to add new features or domains without restructuring
+5. **Maintainability**: Clear boundaries make refactoring safer
 
-The app includes settings for:
-- Theme (Light/Dark/System)
-- Font size and family
-- Editor width
-- Auto-save interval
-- Spell check toggle
+## 🔧 Configuration
 
-### Build Configuration
+### Path Mapping
+TypeScript path mapping is configured in:
+- `tsconfig.json` (root level)
+- `packages/config/vite.config.ts` (build time)
 
-Electron-builder configuration is in `packages/app/package.json` under the `build` field. You can customize:
-- App ID and product name
-- Icons and assets
-- Target platforms and formats
-- Code signing (when configured)
+### Build System
+- **Vite**: Fast development and build tool
+- **Electron Builder**: Cross-platform app packaging
+- **TypeScript**: Type safety and enhanced developer experience
 
-## Development Guidelines
+## 📚 Technology Stack
 
-### Adding New Features
+- **Frontend**: React 18 + TypeScript
+- **Desktop**: Electron 28
+- **Styling**: Tailwind CSS 3
+- **State Management**: Zustand (in workspace domain)
+- **Build Tool**: Vite 5
+- **Code Quality**: ESLint + Prettier
 
-1. **Types**: Add TypeScript interfaces to `packages/core/src/types.ts`
-2. **State**: Extend the Zustand store in `packages/core/src/store.ts`
-3. **Components**: Create React components in `packages/app/src/components/`
-4. **Utilities**: Add shared functions to `packages/core/src/utils.ts`
+## 🤝 Contributing
 
-### Code Quality
+When contributing:
 
-The project uses:
-- **ESLint** for code linting
-- **Prettier** for code formatting
-- **TypeScript** for type checking
-- **Husky** (can be added) for git hooks
+1. Follow the established architectural patterns
+2. Place new code in the appropriate domain/feature/shared directory
+3. Use the established import aliases
+4. Update this README if you add new architectural concepts
 
-Run `npm run lint:fix` and `npm run format` before committing.
+## 📄 License
 
-## Troubleshooting
-
-### Common Issues
-
-1. **Build Errors**: Run `npm run clean` and reinstall dependencies
-2. **TypeScript Errors**: Check `tsconfig.json` configurations in each package
-3. **Electron Issues**: Ensure Electron version matches in all configs
-4. **Hot Reload Not Working**: Restart the dev server
-
-### Platform-Specific Notes
-
-- **Linux**: May require additional dependencies for proper rendering
-- **macOS**: Code signing required for distribution
-- **Windows**: May need Visual Studio Build Tools for native modules
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Run tests and linting
-5. Submit a pull request
-
-## License
-
-MIT License - see LICENSE file for details.
-
-## Roadmap
-
-- [ ] Markdown editor with live preview
-- [ ] Search functionality
-- [ ] File attachments support
-- [ ] Cloud synchronization
-- [ ] Plugin system
-- [ ] Keyboard shortcuts customization
-- [ ] Export/import features 
+MIT License - see LICENSE file for details 

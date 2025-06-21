@@ -10,25 +10,30 @@
     "email": "team@notty.app"
   },
   "scripts": {
-    "dev": "vite",
-    "build": "tsc && vite build && electron-builder",
-    "build:dir": "tsc && vite build && electron-builder --dir",
-    "preview": "vite preview",
+    "dev": "cd ../config && vite",
+    "build": "tsc && cd ../config && vite build && electron-builder",
+    "build:dir": "tsc && cd ../config && vite build && electron-builder --dir",
+    "preview": "cd ../config && vite preview",
     "electron": "electron .",
-    "electron:dev": "concurrently \"vite\" \"wait-on http://localhost:5173 && electron .\"",
+    "electron:dev": "concurrently \"cd ../config && vite\" \"wait-on http://localhost:5173 && electron .\"",
     "dist": "npm run build",
     "clean": "rm -rf dist dist-electron build"
   },
   "dependencies": {
-    "@notty/core": "file:../core",
-    "@notty/ui": "file:../ui",
     "@xterm/addon-fit": "^0.10.0",
     "@xterm/xterm": "^5.5.0",
+    "bufferutil": "^4.0.9",
     "electron-updater": "^6.1.7",
     "lucide-react": "^0.515.0",
+    "monaco-languageclient": "^8.1.1",
     "node-pty": "^1.1.0-beta34",
+    "pyright": "^1.1.380",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
+    "typescript-language-server": "^4.3.2",
+    "utf-8-validate": "^6.0.5",
+    "vscode-languageserver-protocol": "^3.17.5",
+    "ws": "^8.16.0",
     "xterm": "^5.3.0",
     "xterm-addon-fit": "^0.8.0"
   },
@@ -36,6 +41,7 @@
     "@types/node": "^20.11.17",
     "@types/react": "^18.2.55",
     "@types/react-dom": "^18.2.19",
+    "@types/ws": "^8.5.10",
     "@vitejs/plugin-react": "^4.2.1",
     "autoprefixer": "^10.4.17",
     "electron": "^28.2.0",
@@ -51,6 +57,7 @@
   "build": {
     "appId": "com.notty.app",
     "productName": "Notty",
+    "homepage": "https://github.com/notty/notty",
     "electronVersion": "28.2.0",
     "directories": {
       "output": "build"
@@ -60,6 +67,8 @@
       "dist-electron/**/*",
       "node_modules/**/*"
     ],
+    "nodeGypRebuild": false,
+    "buildDependenciesFromSource": false,
     "mac": {
       "category": "public.app-category.productivity",
       "target": [
