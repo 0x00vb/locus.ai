@@ -1,0 +1,189 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+
+**Project Title**:
+Cross-Platform Desktop Notes Application with File Tree Manager
+
+**Technology Stack**:
+
+* **Frontend/UI**: ReactJS (with TailwindCSS or ShadCN for styling)
+* **Desktop Framework**: Electron (for cross-platform native packaging)
+* **State Management**: Zustand or Redux Toolkit
+* **File System Access**: NodeJS fs module via Electron
+* **Data Storage**: Local file system (JSON/Markdown-based notes)
+* **Optional Sync Module**: Cloud sync support using WebDAV or Dropbox API
+
+---
+
+**1. Functional Overview**
+The application is a desktop-based notes management tool with a modern, minimalistic interface. It supports structured organization through a folder-note tree (file manager style), and is focused on speed, simplicity, and developer-oriented keyboard usage. Notes are stored locally in Markdown or plain text, with optional syncing to the cloud.
+
+---
+
+**2. Key Functional Modules**
+
+**2.1 Notes Editor Module**
+
+* Rich text / Markdown editor with live preview
+* Auto-save functionality
+* Versioning: Undo history and version snapshots
+* Inline code blocks with syntax highlighting
+* Keyboard shortcuts for all formatting options
+* Drag-and-drop image/file attachments (stored locally)
+* Spellcheck support (optional toggle)
+
+**2.2 File Tree Manager**
+
+* Treeview representation of folders and notes
+* Ability to create, rename, delete folders and notes
+* Drag-and-drop notes between folders
+* Context menu with operations (rename, delete, new note, new folder)
+* Expand/collapse folders
+* Persistent open/close state across sessions
+
+**2.3 Search and Navigation**
+
+* Global search (by filename and content)
+* Fuzzy search autocomplete for fast access
+* Quick-switch notes using Ctrl+P style modal
+* Recently opened notes view
+* Navigation history (Back/Forward like browser)
+
+**2.4 Theming and Appearance**
+
+* Light/Dark mode toggle
+* Custom themes support (via JSON or user settings)
+* Font size and editor width customization
+* Zen mode (distraction-free fullscreen editing)
+
+**2.5 App Configuration Module**
+
+* Settings page (editor preferences, theme, font, sync)
+* Custom keyboard shortcut configuration
+* Export/import app settings as JSON
+
+**2.6 Cloud Sync (optional for MVP)**
+
+* Manual or automatic sync to Dropbox/WebDAV
+* Conflict resolution interface (manual merge)
+* Sync status indicator in UI
+* Offline-first architecture with queued sync
+
+**2.7 Notification and Logs Module**
+
+* Status bar for background operations
+* Error logs view for sync, file errors, or runtime issues
+* Auto-recovery if corrupted notes detected
+
+**2.8 Extension/Plugin System (optional post-MVP)**
+
+* Ability to define plugins via a plugin.json and React module
+* Use-case: Word counter, Pomodoro timer, etc.
+
+---
+
+**3. Non-Functional Requirements**
+
+* Platform Support: Windows, macOS, Linux
+* Launch speed: < 1s cold boot
+* Resource usage: Max 300MB RAM
+* Offline availability: Fully offline-capable
+* Accessibility: Basic keyboard navigation, screen reader support
+* Localization: English only (initial release), i18n-ready
+
+---
+
+**4. Modules and Package Separation**
+
+**/core**
+
+* fs-wrapper: Abstracts NodeJS file operations
+* state-store: Zustand/Redux logic for state
+* settings: Persistent settings manager
+* logger: Log manager for error reporting
+* search-engine: Indexing and fuzzy search
+
+**/components**
+
+* editor: Rich Markdown editor
+* treeview: File manager with drag/drop
+* searchbar: Global search UI
+* theming: Theme context and controls
+* modal: Unified modal system
+* notifications: Snackbar/toast system
+
+**/pages**
+
+* HomePage: Main editor and tree layout
+* SettingsPage: Preferences and config
+* SyncPage: Sync controls and logs (optional)
+
+**/services**
+
+* cloud-sync: Handles Dropbox/WebDAV sync
+* autosave: Periodic note saving
+* hotkeys: Keyboard shortcut mapping
+* updater: Checks for app updates
+
+**/app**
+
+* Electron main process
+* Menu bar logic
+* Window instantiation
+* IPC bridges for fs and sync
+* App lifecycle events
+
+---
+
+**5. User Roles**
+
+**Single Role: Local Desktop User**
+Capabilities:
+
+* Create, edit, organize notes
+* Customize UI and behavior
+* Sync (if enabled)
+* Export notes and settings
+
+---
+
+**6. Development Phases**
+
+**Phase 1: MVP (Core App)**
+
+* File tree + editor
+* Auto-save
+* Basic search
+* Dark/light mode
+* Local-only storage
+
+**Phase 2: Enhancements**
+
+* Search indexer
+* Theming system
+* File attachments
+* Sync support
+
+**Phase 3: Polish**
+
+* Plugin system
+* Keyboard mapping
+* Settings export/import
+* Accessibility
+
+---
+
+**7. AI Agent Instructions Summary**
+
+* Begin by scaffolding the Electron + ReactJS app with a modular structure as outlined in Section 4
+* Ensure UI is minimal, beautiful, responsive and keyboard-friendly
+* Core features to prioritize: notes CRUD, file tree, markdown editor, autosave
+* Build local JSON/markdown storage wrapper
+* Implement fuzzy search on filenames and content
+* Use TailwindCSS (or ShadCN) for fast, clean UI development
+* Respect all requirements listed in Sections 1-6
+
+

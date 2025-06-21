@@ -1,0 +1,24 @@
+{
+  "name": "@notty/core",
+  "version": "1.0.0",
+  "description": "Core utilities and types for Notty",
+  "type": "module",
+  "main": "dist/main.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "zustand": "^4.5.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.3",
+    "@types/node": "^20.10.0"
+  },
+  "exports": {
+    ".": "./dist/index.js",
+    "./main": "./dist/main.js"
+  }
+} 
