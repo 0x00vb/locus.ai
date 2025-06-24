@@ -116,6 +116,29 @@ app.whenReady().then(async () => {
           label: 'Select Workspace',
           accelerator: 'CmdOrCtrl+Shift+O',
           click: async () => {
+            // Check for unsaved files first
+            const hasUnsavedChanges = await win?.webContents.executeJavaScript(`
+              window.api && typeof window.api.hasUnsavedChanges === 'function' 
+                ? window.api.hasUnsavedChanges() 
+                : false
+            `);
+
+            if (hasUnsavedChanges) {
+              const response = dialog.showMessageBoxSync(win!, {
+                type: 'warning',
+                title: 'Unsaved Changes',
+                message: 'You have unsaved changes that will be lost.',
+                detail: 'Do you want to continue changing the workspace?',
+                buttons: ['Cancel', 'Continue'],
+                defaultId: 0,
+                cancelId: 0,
+              });
+
+              if (response === 0) {
+                return; // User cancelled
+              }
+            }
+
             const result = await dialog.showOpenDialog(win!, {
               title: 'Select Workspace Directory',
               message: 'Choose the folder where your notes will be stored',
@@ -125,11 +148,19 @@ app.whenReady().then(async () => {
 
             if (!result.canceled && result.filePaths.length > 0) {
               const newWorkspace = result.filePaths[0];
-              currentWorkspace = newWorkspace;
-              fileSystemService = new FileSystemService(newWorkspace);
               
-              // Notify the renderer process about the workspace change
-              win?.webContents.send('workspace-changed', newWorkspace);
+              // Store the new workspace for restart
+              currentWorkspace = newWorkspace;
+              
+              // Close current window and create new one with new workspace
+              if (win) {
+                win.close();
+                // Create new window after a short delay to ensure clean shutdown
+                setTimeout(() => {
+                  fileSystemService = new FileSystemService(newWorkspace);
+                  createWindow();
+                }, 100);
+              }
             }
           },
         },
@@ -388,6 +419,29 @@ ipcMain.handle('core:getCurrentWorkspace', async () => {
 ipcMain.handle('core:selectWorkspace', async () => {
   if (!win) return null;
   
+  // Check for unsaved files first
+  const hasUnsavedChanges = await win.webContents.executeJavaScript(`
+    window.api && typeof window.api.hasUnsavedChanges === 'function' 
+      ? window.api.hasUnsavedChanges() 
+      : false
+  `);
+
+  if (hasUnsavedChanges) {
+    const response = dialog.showMessageBoxSync(win, {
+      type: 'warning',
+      title: 'Unsaved Changes',
+      message: 'You have unsaved changes that will be lost.',
+      detail: 'Do you want to continue changing the workspace?',
+      buttons: ['Cancel', 'Continue'],
+      defaultId: 0,
+      cancelId: 0,
+    });
+
+    if (response === 0) {
+      return null; // User cancelled
+    }
+  }
+  
   const result = await dialog.showOpenDialog(win, {
     title: 'Select Workspace Directory',
     message: 'Choose the folder where your notes will be stored',
@@ -397,8 +451,20 @@ ipcMain.handle('core:selectWorkspace', async () => {
 
   if (!result.canceled && result.filePaths.length > 0) {
     const newWorkspace = result.filePaths[0];
+    
+    // Store the new workspace for restart
     currentWorkspace = newWorkspace;
-    fileSystemService = new FileSystemService(newWorkspace);
+    
+    // Close current window and create new one with new workspace
+    if (win) {
+      win.close();
+      // Create new window after a short delay to ensure clean shutdown
+      setTimeout(() => {
+        fileSystemService = new FileSystemService(newWorkspace);
+        createWindow();
+      }, 100);
+    }
+    
     return newWorkspace;
   }
   

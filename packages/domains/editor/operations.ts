@@ -76,7 +76,8 @@ export class NoteOperations {
   async readNote(filePath: string): Promise<string | null> {
     try {
       const content = await IPCService.readNote(filePath);
-      return content || null;
+      // Return content even if it's an empty string - only return null if undefined
+      return content !== undefined ? content : null;
     } catch (error) {
       console.error('Failed to read note:', error);
       return null;

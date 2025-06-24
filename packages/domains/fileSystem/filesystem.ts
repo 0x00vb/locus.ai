@@ -150,7 +150,7 @@ export class FileSystemService {
           const metadata = await this.getNoteMetadata(fullPath);
           items.push({
             id: metadata.id,
-            name: metadata.title,
+            name: file.name, // Use actual filename with extension
             path: fullPath,
             type: 'file',
             createdAt: stats.birthtime,
@@ -282,20 +282,8 @@ export class FileSystemService {
       // Only add .md if no extension is provided at all
       const noteFileName = fileName.includes('.') ? fileName : `${fileName}.md`;
       
-      // Use provided content or generate default based on file extension
-      let defaultContent = content || '';
-      if (!content) {
-        const extension = path.extname(noteFileName).toLowerCase();
-        switch (extension) {
-          case '.md':
-            defaultContent = `# ${path.basename(fileName, extension)}\n\nCreated: ${new Date().toLocaleString()}\n\n`;
-            break;
-          case '.txt':
-          default:
-            defaultContent = `Created: ${new Date().toLocaleString()}\n\n`;
-            break;
-        }
-      }
+      // Use provided content or empty string
+      const defaultContent = content || '';
       
       const sanitizedPath = this.sanitizePath(noteFileName);
       const dir = path.dirname(sanitizedPath);

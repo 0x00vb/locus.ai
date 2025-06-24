@@ -1,18 +1,23 @@
 {
   "extends": "../../tsconfig.json",
   "compilerOptions": {
-    "baseUrl": ".",
+    "baseUrl": "../../",
     "allowSyntheticDefaultImports": true,
     "esModuleInterop": true,
     "paths": {
       "@/*": ["./src/*"],
       "@notty/core": ["../core/src"],
-      "@notty/core/*": ["../core/src/*"]
+      "@notty/core/*": ["../core/src/*"],
+      "@app/*": ["packages/app/*"],
+      "@domains/*": ["packages/domains/*"],
+      "@features/*": ["packages/features/*"],
+      "@shared/*": ["packages/shared/*"]
     }
   },
   "include": [
-    "src/**/*",
-    "electron/**/*"
+    "renderer/**/*",
+    "main/**/*",
+    "preload/**/*"
   ],
   "exclude": ["dist", "dist-electron", "build", "node_modules"]
 } 

@@ -8,22 +8,26 @@ import type { TreeNode } from '@features/treeView';
 export interface DragDropState {
   isDragging: boolean;
   draggedNode: TreeNode | null;
+  draggedNodes: TreeNode[]; // Support for multiple dragged nodes
   dropTargetId: string | null;
   isValidDropTarget: boolean;
   showDropIndicator: boolean;
 }
 
 export interface DragDropActions {
-  handleDragStart: (e: React.DragEvent, node: TreeNode) => void;
+  handleDragStart: (e: React.DragEvent, node: TreeNode, selectedNodes?: TreeNode[]) => void;
   handleDragEnd: () => void;
   handleDragOver: (e: React.DragEvent, node: TreeNode) => void;
   handleDragLeave: (e: React.DragEvent) => void;
   handleDrop: (e: React.DragEvent, targetNode: TreeNode) => void;
+  handleDropToRoot: (e: React.DragEvent) => void; // New method for dropping to root
   clearDragState: () => void;
 }
 
 export interface DragDropCallbacks {
   onMove: (sourceNode: TreeNode, targetNode: TreeNode) => Promise<{ success: boolean; newPath?: string }>;
+  onMoveMultiple?: (sourceNodes: TreeNode[], targetNode: TreeNode) => Promise<{ success: boolean; newPaths?: string[] }>; // New callback for multi-move
+  onMoveToRoot?: (sourceNodes: TreeNode[]) => Promise<{ success: boolean; newPaths?: string[] }>; // New callback for moving to root
   onExpandFolder?: (node: TreeNode) => void;
 }
 
@@ -43,6 +47,20 @@ const isValidDrop = (draggedNode: TreeNode | null, targetNode: TreeNode): boolea
   }
   
   return true;
+};
+
+// Utility function to check if multiple nodes can be dropped
+const isValidMultiDrop = (draggedNodes: TreeNode[], targetNode: TreeNode): boolean => {
+  if (!draggedNodes.length) return false;
+  
+  // Check each node individually
+  return draggedNodes.every(node => isValidDrop(node, targetNode));
+};
+
+// Utility function to check if drop to root is valid
+const isValidRootDrop = (draggedNodes: TreeNode[]): boolean => {
+  // All nodes should be valid for root drop (no parent-child conflicts)
+  return draggedNodes.length > 0;
 };
 
 // Utility function to get visual feedback styles
@@ -75,6 +93,7 @@ export const useDragDrop = (callbacks: DragDropCallbacks): [DragDropState, DragD
   const [state, setState] = useState<DragDropState>({
     isDragging: false,
     draggedNode: null,
+    draggedNodes: [],
     dropTargetId: null,
     isValidDropTarget: false,
     showDropIndicator: false,
@@ -83,17 +102,28 @@ export const useDragDrop = (callbacks: DragDropCallbacks): [DragDropState, DragD
   // Auto-expand folders on hover during drag
   const expandTimeouts = useRef<Set<NodeJS.Timeout>>(new Set());
 
-  const handleDragStart = useCallback((e: React.DragEvent, node: TreeNode) => {
-    // Set drag data
-    e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('application/json', JSON.stringify(node));
+  const handleDragStart = useCallback((e: React.DragEvent, node: TreeNode, selectedNodes: TreeNode[] = []) => {
+    // Determine what nodes are being dragged
+    const draggedNodes = selectedNodes.length > 0 ? selectedNodes : [node];
     
-    // Set custom drag image (optional)
+    // Set drag data - store all dragged nodes
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('application/json', JSON.stringify({
+      draggedNode: node,
+      draggedNodes: draggedNodes
+    }));
+    
+    // Set custom drag image
     const dragImage = document.createElement('div');
-    dragImage.textContent = node.name;
+    if (draggedNodes.length > 1) {
+      dragImage.textContent = `${draggedNodes.length} files`;
+      dragImage.className = 'px-2 py-1 bg-orange-100 border border-orange-300 rounded text-sm';
+    } else {
+      dragImage.textContent = node.name;
+      dragImage.className = 'px-2 py-1 bg-blue-100 border border-blue-300 rounded text-sm';
+    }
     dragImage.style.position = 'absolute';
     dragImage.style.top = '-1000px';
-    dragImage.className = 'px-2 py-1 bg-blue-100 border border-blue-300 rounded text-sm';
     document.body.appendChild(dragImage);
     e.dataTransfer.setDragImage(dragImage, 0, 0);
     
@@ -106,6 +136,7 @@ export const useDragDrop = (callbacks: DragDropCallbacks): [DragDropState, DragD
       ...prev,
       isDragging: true,
       draggedNode: node,
+      draggedNodes: draggedNodes,
     }));
   }, []);
 
@@ -113,6 +144,7 @@ export const useDragDrop = (callbacks: DragDropCallbacks): [DragDropState, DragD
     setState({
       isDragging: false,
       draggedNode: null,
+      draggedNodes: [],
       dropTargetId: null,
       isValidDropTarget: false,
       showDropIndicator: false,
@@ -127,7 +159,10 @@ export const useDragDrop = (callbacks: DragDropCallbacks): [DragDropState, DragD
     e.preventDefault();
     e.stopPropagation();
     
-    const isValid = isValidDrop(state.draggedNode, node);
+    // Check validity based on whether we have multiple nodes or single node
+    const isValid = state.draggedNodes.length > 1 
+      ? isValidMultiDrop(state.draggedNodes, node)
+      : isValidDrop(state.draggedNode, node);
     
     // Set drop effect based on validity
     e.dataTransfer.dropEffect = isValid ? 'move' : 'none';
@@ -152,7 +187,7 @@ export const useDragDrop = (callbacks: DragDropCallbacks): [DragDropState, DragD
       
       expandTimeouts.current.add(timeout);
     }
-  }, [state.draggedNode, callbacks.onExpandFolder]);
+  }, [state.draggedNode, state.draggedNodes, callbacks.onExpandFolder]);
 
   const handleDragLeave = useCallback((e: React.DragEvent) => {
     // Only clear if we're actually leaving the element
@@ -175,37 +210,103 @@ export const useDragDrop = (callbacks: DragDropCallbacks): [DragDropState, DragD
     e.stopPropagation();
 
     const dragData = e.dataTransfer.getData('application/json');
-    const draggedNode = dragData ? JSON.parse(dragData) as TreeNode : state.draggedNode;
+    let draggedNode = state.draggedNode;
+    let draggedNodes = state.draggedNodes;
 
-    if (!draggedNode || !isValidDrop(draggedNode, targetNode)) {
-      return;
+    // Parse drag data if available
+    if (dragData) {
+      const parsed = JSON.parse(dragData);
+      draggedNode = parsed.draggedNode || draggedNode;
+      draggedNodes = parsed.draggedNodes || draggedNodes;
     }
 
-    try {
-      const result = await callbacks.onMove(draggedNode, targetNode);
+    // Handle multiple nodes vs single node
+    if (draggedNodes.length > 1) {
+      if (!isValidMultiDrop(draggedNodes, targetNode)) return;
       
-      if (!result.success) {
-        // Could show an error message here
-        console.error('Failed to move item');
+      try {
+        // Use the new multi-move callback if available
+        if (callbacks.onMoveMultiple) {
+          const result = await callbacks.onMoveMultiple(draggedNodes, targetNode);
+          if (!result.success) {
+            console.error('Failed to move multiple items');
+          }
+        } else {
+          // Fallback: move each item individually
+          for (const node of draggedNodes) {
+            await callbacks.onMove(node, targetNode);
+          }
+        }
+      } catch (error) {
+        console.error('Error during multi-drop operation:', error);
       }
-    } catch (error) {
-      console.error('Error during drop operation:', error);
+    } else {
+      // Single node drop (existing logic)
+      if (!draggedNode || !isValidDrop(draggedNode, targetNode)) return;
+      
+      try {
+        const result = await callbacks.onMove(draggedNode, targetNode);
+        if (!result.success) {
+          console.error('Failed to move item');
+        }
+      } catch (error) {
+        console.error('Error during drop operation:', error);
+      }
     }
 
     // Clear drag state
     setState({
       isDragging: false,
       draggedNode: null,
+      draggedNodes: [],
       dropTargetId: null,
       isValidDropTarget: false,
       showDropIndicator: false,
     });
-  }, [state.draggedNode, callbacks.onMove]);
+  }, [state.draggedNode, state.draggedNodes, callbacks.onMove, callbacks.onMoveMultiple]);
+
+  const handleDropToRoot = useCallback(async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const dragData = e.dataTransfer.getData('application/json');
+    let draggedNodes = state.draggedNodes;
+
+    // Parse drag data if available
+    if (dragData) {
+      const parsed = JSON.parse(dragData);
+      draggedNodes = parsed.draggedNodes || [parsed.draggedNode].filter(Boolean);
+    }
+
+    if (!isValidRootDrop(draggedNodes)) return;
+
+    try {
+      if (callbacks.onMoveToRoot) {
+        const result = await callbacks.onMoveToRoot(draggedNodes);
+        if (!result.success) {
+          console.error('Failed to move items to root');
+        }
+      }
+    } catch (error) {
+      console.error('Error during root drop operation:', error);
+    }
+
+    // Clear drag state
+    setState({
+      isDragging: false,
+      draggedNode: null,
+      draggedNodes: [],
+      dropTargetId: null,
+      isValidDropTarget: false,
+      showDropIndicator: false,
+    });
+  }, [state.draggedNodes, callbacks.onMoveToRoot]);
 
   const clearDragState = useCallback(() => {
     setState({
       isDragging: false,
       draggedNode: null,
+      draggedNodes: [],
       dropTargetId: null,
       isValidDropTarget: false,
       showDropIndicator: false,
@@ -226,6 +327,7 @@ export const useDragDrop = (callbacks: DragDropCallbacks): [DragDropState, DragD
     handleDragOver,
     handleDragLeave,
     handleDrop,
+    handleDropToRoot,
     clearDragState,
   };
 

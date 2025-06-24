@@ -24,10 +24,6 @@ export const TabItem: React.FC<TabItemProps> = React.memo(({
     onClose(tab.id);
   };
 
-  const getDisplayName = () => {
-    return tab.extension ? `${tab.name}` : tab.name;
-  };
-
   return (
     <div
       className={`
@@ -50,7 +46,7 @@ export const TabItem: React.FC<TabItemProps> = React.memo(({
             title="Unsaved changes"
           />
         )}
-        {getDisplayName()}
+        {tab.name}
       </span>
       
       {/* Close button - always visible on hover */}

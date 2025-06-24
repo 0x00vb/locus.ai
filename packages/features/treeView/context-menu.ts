@@ -11,42 +11,47 @@ export interface ContextMenuState {
   x: number;
   y: number;
   node: TreeNode | null;
+  selectedNodes: TreeNode[];
 }
 
 export interface ContextMenuActions {
-  show: (event: React.MouseEvent, node: TreeNode) => void;
+  show: (event: React.MouseEvent, node: TreeNode, selectedNodes?: TreeNode[]) => void;
   hide: () => void;
   handleDelete: () => void;
   handleRename: () => void;
   handleCreateInFolder: (type: 'file' | 'folder') => void;
+  handleBulkDelete: () => void;
 }
 
 export const useContextMenu = (
   onDelete: (node: TreeNode) => void,
   onRename: (node: TreeNode) => void,
-  onCreateInFolder: (node: TreeNode, type: 'file' | 'folder') => void
+  onCreateInFolder: (node: TreeNode, type: 'file' | 'folder') => void,
+  onBulkDelete?: (nodes: TreeNode[]) => void
 ): [ContextMenuState, ContextMenuActions, React.RefObject<HTMLDivElement>] => {
   const [contextMenu, setContextMenu] = useState<ContextMenuState>({ 
     show: false, 
     x: 0, 
     y: 0, 
-    node: null 
+    node: null,
+    selectedNodes: []
   });
   
   const contextMenuRef = useRef<HTMLDivElement>(null);
 
-  const showContextMenu = useCallback((event: React.MouseEvent, node: TreeNode) => {
+  const showContextMenu = useCallback((event: React.MouseEvent, node: TreeNode, selectedNodes: TreeNode[] = []) => {
     event.preventDefault();
     setContextMenu({
       show: true,
       x: event.clientX,
       y: event.clientY,
       node,
+      selectedNodes
     });
   }, []);
 
   const hideContextMenu = useCallback(() => {
-    setContextMenu({ show: false, x: 0, y: 0, node: null });
+    setContextMenu({ show: false, x: 0, y: 0, node: null, selectedNodes: [] });
   }, []);
 
   const handleDelete = useCallback(() => {
@@ -67,6 +72,15 @@ export const useContextMenu = (
     hideContextMenu();
   }, [contextMenu.node, onCreateInFolder, hideContextMenu]);
 
+  const handleBulkDelete = useCallback(() => {
+    if (!contextMenu.selectedNodes.length && !contextMenu.node) return;
+    const nodesToDelete = contextMenu.selectedNodes.length > 0 ? contextMenu.selectedNodes : [contextMenu.node!];
+    if (onBulkDelete) {
+      onBulkDelete(nodesToDelete);
+    }
+    hideContextMenu();
+  }, [contextMenu.selectedNodes, contextMenu.node, onBulkDelete, hideContextMenu]);
+
   // Close context menu when clicking outside
   useOutsideClick(contextMenuRef, hideContextMenu, contextMenu.show);
 
@@ -77,6 +91,7 @@ export const useContextMenu = (
     handleDelete,
     handleRename,
     handleCreateInFolder,
+    handleBulkDelete,
   };
 
   return [state, actions, contextMenuRef];

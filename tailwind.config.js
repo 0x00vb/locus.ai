@@ -3,6 +3,10 @@ export default {
   content: [
     "./index.html",
     "./packages/**/*.{js,ts,jsx,tsx}",
+    "!./packages/**/node_modules/**",
+    "!./packages/**/dist/**",
+    "!./packages/**/dist-electron/**",
+    "!./packages/**/build/**",
   ],
   theme: {
     extend: {

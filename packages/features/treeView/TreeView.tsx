@@ -12,7 +12,7 @@ export interface TreeNode {
 }
 
 export interface DragDropHandlers {
-  onDragStart?: (e: React.DragEvent, node: TreeNode) => void;
+  onDragStart?: (e: React.DragEvent, node: TreeNode, selectedNodes?: TreeNode[]) => void;
   onDragEnd?: () => void;
   onDragOver?: (e: React.DragEvent, node: TreeNode) => void;
   onDragLeave?: (e: React.DragEvent) => void;
@@ -21,9 +21,10 @@ export interface DragDropHandlers {
 
 export interface TreeViewProps {
   nodes: TreeNode[];
-  onSelect: (path: string, node: TreeNode) => void;
-  onContextMenu?: (event: React.MouseEvent, node: TreeNode) => void;
+  onSelect: (path: string, node: TreeNode, isMultiSelect?: boolean) => void;
+  onContextMenu?: (event: React.MouseEvent, node: TreeNode, selectedNodes?: TreeNode[]) => void;
   selectedPath?: string;
+  selectedPaths?: string[];
   className?: string;
   dragDropHandlers?: DragDropHandlers;
   dragDropState?: {
@@ -37,9 +38,10 @@ export interface TreeViewProps {
 
 export interface TreeNodeItemProps {
   node: TreeNode;
-  onSelect: (path: string, node: TreeNode) => void;
-  onContextMenu?: (event: React.MouseEvent, node: TreeNode) => void;
+  onSelect: (path: string, node: TreeNode, isMultiSelect?: boolean) => void;
+  onContextMenu?: (event: React.MouseEvent, node: TreeNode, selectedNodes?: TreeNode[]) => void;
   selectedPath?: string;
+  selectedPaths?: string[];
   depth?: number;
   dragDropHandlers?: DragDropHandlers;
   dragDropState?: {
@@ -76,18 +78,22 @@ const getDragDropStyles = (
   return className.trim();
 };
 
-const TreeNodeItem: React.FC<TreeNodeItemProps> = ({ 
+const TreeNodeItem: React.FC<TreeNodeItemProps & { allNodes?: TreeNode[] }> = ({ 
   node, 
   onSelect, 
   onContextMenu, 
   selectedPath, 
+  selectedPaths = [],
+  allNodes = [],
   depth = 0,
   dragDropHandlers,
   dragDropState,
   onExpandFolder
 }) => {
   const [isExpanded, setIsExpanded] = useState(true);
-  const isSelected = selectedPath === node.path;
+  
+  // Check if this node is selected (either through single or multi-select)
+  const isSelected = selectedPath === node.path || selectedPaths.includes(node.path);
   const hasChildren = node.children && node.children.length > 0;
 
   // Drag and drop state
@@ -109,22 +115,67 @@ const TreeNodeItem: React.FC<TreeNodeItemProps> = ({
     }
   };
 
-  const handleSelect = () => {
-    onSelect(node.path, node);
+  const handleSelect = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    
+    // Check if Ctrl (or Cmd on Mac) is held for multi-select
+    const isMultiSelect = e.ctrlKey || e.metaKey;
+    onSelect(node.path, node, isMultiSelect);
   };
 
   const handleContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     if (onContextMenu) {
-      onContextMenu(e, node);
+      // Find selected nodes from all nodes
+      const findNodesByPaths = (nodes: TreeNode[], paths: string[]): TreeNode[] => {
+        const result: TreeNode[] = [];
+        const findInNodes = (nodeList: TreeNode[]) => {
+          for (const node of nodeList) {
+            if (paths.includes(node.path)) {
+              result.push(node);
+            }
+            if (node.children) {
+              findInNodes(node.children);
+            }
+          }
+        };
+        findInNodes(nodes);
+        return result;
+      };
+      
+      const selectedNodes = findNodesByPaths(allNodes, selectedPaths);
+      onContextMenu(e, node, selectedNodes);
     }
   };
 
   // Drag and drop handlers
   const handleDragStart = (e: React.DragEvent) => {
     if (dragDropHandlers?.onDragStart) {
-      dragDropHandlers.onDragStart(e, node);
+      // Find selected nodes from all nodes for multi-drag
+      const findNodesByPaths = (nodes: TreeNode[], paths: string[]): TreeNode[] => {
+        const result: TreeNode[] = [];
+        const findInNodes = (nodeList: TreeNode[]) => {
+          for (const node of nodeList) {
+            if (paths.includes(node.path)) {
+              result.push(node);
+            }
+            if (node.children) {
+              findInNodes(node.children);
+            }
+          }
+        };
+        findInNodes(nodes);
+        return result;
+      };
+      
+      const selectedNodes = findNodesByPaths(allNodes, selectedPaths);
+      // Only pass selected nodes if this node is part of the selection
+      const nodesToDrag = selectedPaths.includes(node.path) && selectedNodes.length > 1 
+        ? selectedNodes 
+        : [];
+      
+      dragDropHandlers.onDragStart(e, node, nodesToDrag);
     }
   };
 
@@ -159,7 +210,11 @@ const TreeNodeItem: React.FC<TreeNodeItemProps> = ({
     <div className="select-none">
       <div
         className={`flex gap-1 items-center py-1 px-2 rounded-md cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors ${
-          isSelected ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' : 'text-gray-700 dark:text-gray-300'
+          isSelected 
+            ? selectedPaths.length > 1 
+              ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400' // Multi-select style
+              : 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' // Single select style
+            : 'text-gray-700 dark:text-gray-300'
         } ${dragDropClasses}`}
         style={{ paddingLeft: `${8 + depth * 16}px` }}
         onClick={handleSelect}
@@ -209,6 +264,8 @@ const TreeNodeItem: React.FC<TreeNodeItemProps> = ({
               onSelect={onSelect}
               onContextMenu={onContextMenu}
               selectedPath={selectedPath}
+              selectedPaths={selectedPaths}
+              allNodes={allNodes}
               depth={depth + 1}
               dragDropHandlers={dragDropHandlers}
               dragDropState={dragDropState}
@@ -226,6 +283,7 @@ export const TreeView: React.FC<TreeViewProps> = ({
   onSelect, 
   onContextMenu,
   selectedPath, 
+  selectedPaths = [],
   className = '',
   dragDropHandlers,
   dragDropState,
@@ -241,6 +299,8 @@ export const TreeView: React.FC<TreeViewProps> = ({
           onSelect={onSelect}
           onContextMenu={onContextMenu}
           selectedPath={selectedPath}
+          selectedPaths={selectedPaths}
+          allNodes={nodes}
           dragDropHandlers={dragDropHandlers}
           dragDropState={dragDropState}
           onExpandFolder={onExpandFolder}

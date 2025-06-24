@@ -17,6 +17,7 @@ declare global {
       getCurrentWorkspace: () => Promise<string>;
       selectWorkspace: () => Promise<string | null>;
       onWorkspaceChanged?: (callback: (workspace: string) => void) => void;
+      hasUnsavedChanges: () => boolean;
 
       // Window control operations
         minimizeWindow: () => Promise<void>;
@@ -87,6 +88,11 @@ declare global {
       onMenuAction: (callback: (action: string) => void) => void;
       removeAllListeners: (channel: string) => void;
       onMainProcessMessage: (callback: (message: string) => void) => void;
+    };
+
+    // Global reference to tabbed editor API for unsaved changes check
+    tabbedEditorAPI?: {
+      hasUnsavedChanges: () => boolean;
     };
   }
 }

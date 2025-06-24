@@ -110,7 +110,7 @@ export const useTabManager = (): [TabManagerState, TabManagerActions] => {
       if (index === -1) return prevTabs;
 
       const current = prevTabs[index];
-      const liveContent = liveContentRef.current.get(id) || current.content;
+      const liveContent = liveContentRef.current.has(id) ? liveContentRef.current.get(id)! : current.content;
 
       // Update both isDirty and content to match the live content
       const updated = [...prevTabs];
@@ -136,13 +136,13 @@ export const useTabManager = (): [TabManagerState, TabManagerActions] => {
     // Always return tab with live content from refs
     return {
       ...tab,
-      content: liveContentRef.current.get(activeTabId) || tab.content,
+      content: liveContentRef.current.has(activeTabId) ? liveContentRef.current.get(activeTabId)! : tab.content,
       isDirty: isDirtyRef.current.get(activeTabId) || false
     };
   }, [openTabs, activeTabId]);
 
   const getCurrentContent = useCallback((id: string): string => {
-    return liveContentRef.current.get(id) || '';
+    return liveContentRef.current.has(id) ? liveContentRef.current.get(id)! : '';
   }, []);
 
   // FIXED: Use a more stable state calculation
@@ -151,7 +151,7 @@ export const useTabManager = (): [TabManagerState, TabManagerActions] => {
       ...tab,
       // Only show live content for the active tab to prevent unnecessary updates
       content: tab.id === activeTabId ? 
-        (liveContentRef.current.get(tab.id) || tab.content) : 
+        (liveContentRef.current.has(tab.id) ? liveContentRef.current.get(tab.id)! : tab.content) : 
         tab.content,
       isDirty: isDirtyRef.current.get(tab.id) || false
     })),

@@ -76,7 +76,6 @@ export default defineConfig({
     port: 5173,
   },
   optimizeDeps: {
-    force: true,
     exclude: ['electron', 'node-pty', 'ws', 'bufferutil', 'utf-8-validate', 'child_process', 'path', 'http'],
     include: ['react', 'react-dom', 'lucide-react', 'zustand', '@monaco-editor/react'],
   },

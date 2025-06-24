@@ -22,6 +22,14 @@ contextBridge.exposeInMainWorld('api', {
   onWorkspaceChanged: (callback: (workspace: string) => void) => {
     ipcRenderer.on('workspace-changed', (_: any, workspace: string) => callback(workspace));
   },
+  hasUnsavedChanges: () => {
+    // This will be called by the main process to check for unsaved changes
+    // We need to access the tabbed editor API from the global scope
+    if (window.tabbedEditorAPI && typeof window.tabbedEditorAPI.hasUnsavedChanges === 'function') {
+      return window.tabbedEditorAPI.hasUnsavedChanges();
+    }
+    return false;
+  },
 
   // Window control operations
   minimizeWindow: () => ipcRenderer.invoke('window:minimize'),
