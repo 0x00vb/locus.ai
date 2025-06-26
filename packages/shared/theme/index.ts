@@ -59,6 +59,45 @@ export interface Theme {
 }
 
 export const themes: Record<string, Theme> = {
+  lotus: {
+    name: 'lotus',
+    label: 'Lotus',
+    type: 'dark',
+    colors: {
+      background: '26 6% 25%',                 // black-olive
+      foreground: '293 33% 91%',              // pale-purple
+      card: '26 6% 25%',
+      cardForeground: '293 33% 91%',
+      popover: '26 6% 25%',
+      popoverForeground: '293 33% 91%',
+      primary: '17 79% 63%',                  // coral
+      primaryForeground: '26 6% 25%',         // black-olive
+      secondary: '240 26% 68%',               // cool-gray
+      secondaryForeground: '26 6% 25%',
+      muted: '240 26% 68%',                   // cool-gray
+      mutedForeground: '293 33% 91%',         // pale-purple
+      accent: '157 62% 80%',                  // celadon
+      accentForeground: '26 6% 25%',
+      destructive: '0 100% 67%',
+      destructiveForeground: '293 33% 91%',
+      border: '240 26% 68%',
+      input: '240 26% 68%',
+      ring: '17 79% 63%',
+      editorBackground: '26 6% 25%',
+      editorForeground: '293 33% 91%',
+      editorSelectionBackground: '240 26% 68%',
+      editorLineHighlight: '26 6% 30%',
+      editorGutter: '240 26% 68%',
+      syntaxKeyword: '17 79% 63%',            // coral
+      syntaxString: '157 62% 80%',            // celadon
+      syntaxComment: '240 26% 68%',           // cool-gray
+      syntaxNumber: '293 33% 91%',            // pale-purple
+      syntaxOperator: '26 6% 55%',
+      syntaxFunction: '240 26% 68%',
+      syntaxVariable: '293 33% 91%',
+    },
+  },
+  
   light: {
     name: 'light',
     label: 'Light',

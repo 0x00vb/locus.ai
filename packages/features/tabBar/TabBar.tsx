@@ -1,6 +1,7 @@
 import React, { useRef, useEffect } from 'react';
 import { TabItem } from './TabItem';
 import type { TabData } from '@shared/hooks/useTabManager';
+import type { SplitPane } from '@features/tabs/useSplitTabManager';
 
 export interface TabBarProps {
   tabs: TabData[];
@@ -8,6 +9,7 @@ export interface TabBarProps {
   onTabSelect: (id: string) => void;
   onTabClose: (id: string) => void;
   className?: string;
+  pane?: SplitPane; // Which pane this TabBar is for
 }
 
 export const TabBar: React.FC<TabBarProps> = React.memo(({
@@ -16,6 +18,7 @@ export const TabBar: React.FC<TabBarProps> = React.memo(({
   onTabSelect,
   onTabClose,
   className = '',
+  pane = 'left',
 }) => {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
@@ -53,6 +56,7 @@ export const TabBar: React.FC<TabBarProps> = React.memo(({
               isActive={tab.id === activeTabId}
               onSelect={onTabSelect}
               onClose={onTabClose}
+              pane={pane}
             />
           </div>
         ))}
@@ -65,7 +69,8 @@ export const TabBar: React.FC<TabBarProps> = React.memo(({
   // Fast path: Check if handlers or className changed
   if (prevProps.onTabSelect !== nextProps.onTabSelect ||
       prevProps.onTabClose !== nextProps.onTabClose ||
-      prevProps.className !== nextProps.className) {
+      prevProps.className !== nextProps.className ||
+      prevProps.pane !== nextProps.pane) {
     return false; // Re-render needed
   }
 

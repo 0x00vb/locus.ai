@@ -1,6 +1,6 @@
 /// <reference path="./preload.d.ts" />
 
-import { useRef, useMemo, useEffect } from 'react';
+import { useRef, useMemo, useEffect, useState } from 'react';
 import { useAppStore } from '@domains/workspace';
 import { 
   TreeView, 
@@ -19,7 +19,7 @@ import {
 import {
   StatusBar
 } from '@features/statusBar';
-import { Plus, FolderPlus, FolderOpen } from 'lucide-react';
+import { Plus, FolderPlus, FolderOpen, MessageSquare } from 'lucide-react';
 
 import { useWorkspace } from '@domains/workspace/operations';
 import { useContextMenu } from '@features/treeView/context-menu';
@@ -37,6 +37,8 @@ import { ResizeHandle } from '@shared/components/ResizeHandle';
 import { SlideUpPanel } from '@shared/components/SlideUpPanel';
 import { TerminalView } from '@features/terminal/terminal-view';
 import { useTerminal } from '@features/terminal/terminal-hooks';
+import AgentChatPanel from './ui/AgentChatPanel';
+import { ChatProvider } from './ui/context/ChatContext';
 
 const getLanguageFromExtension = (filePath: string): string => {
   const ext = filePath.split('.').pop()?.toLowerCase() || '';
@@ -54,15 +56,24 @@ function AppContent() {
   const [workspaceState, workspaceActions] = useWorkspace();
   const { currentWorkspace, treeNodes } = workspaceState;
   
+  // Chat panel state from global store
+  const { chatPanelOpen, toggleChatPanel } = useAppStore();
+  
   // Add multi-select state
   const [multiSelectState, multiSelectActions] = useMultiSelect((selectedPaths) => {
     console.log('Selected files:', selectedPaths);
     // You can add additional logic here when selection changes
   });
 
+  // CRITICAL FIX: Independent selectedPath state for immediate sidebar highlighting
+  const [selectedPath, setSelectedPath] = useState<string>("");
+
   const noteOperations = new NoteOperations({
     onFileTreeUpdate: workspaceActions.loadFileTree,
-    onNoteSelect: () => {},
+    onNoteSelect: (path: string, node: TreeNode) => {
+      // Auto-open newly created files using handleFileSelect
+      handleFileSelect(path, node);
+    },
   });
 
   const { component: TabbedNoteEditor, api: editorApi } = useTabbedEditor(
@@ -77,6 +88,16 @@ function AppContent() {
   );
 
   const currentFile = editorApi.getCurrentFile();
+
+  // CRITICAL FIX: Sync selectedPath with editor's currentFile for consistency
+  // This handles cases where files are opened via drag & drop, tab switching, etc.
+  useEffect(() => {
+    if (currentFile?.path) {
+      setSelectedPath(currentFile.path);
+    } else {
+      setSelectedPath("");
+    }
+  }, [currentFile?.path]);
 
   const statusBarData = useMemo(() => {
     const content = currentFile?.content ?? '';
@@ -140,6 +161,9 @@ function AppContent() {
     if (node.type !== 'file') return;
     const current = editorApi.getCurrentFile();
     if (current?.path === filePath) return;
+
+    // CRITICAL FIX: Update selectedPath immediately for sidebar highlighting
+    setSelectedPath(filePath);
 
     try {
       const content = await noteOperations.readNote(filePath);
@@ -238,6 +262,11 @@ function AppContent() {
         e.preventDefault();
         sidebarActions.toggleSidebar();
       }
+      // Cmd+Shift+A to toggle AI chat panel
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'A') {
+        e.preventDefault();
+        toggleChatPanel();
+      }
       // Escape to clear multi-selection
       if (e.key === 'Escape' && multiSelectState.selectedPaths.length > 0) {
         e.preventDefault();
@@ -253,11 +282,15 @@ function AppContent() {
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [terminalActions, sidebarActions, multiSelectState.selectedPaths, multiSelectActions, treeNodes]);
+  }, [terminalActions, sidebarActions, toggleChatPanel, multiSelectState.selectedPaths, multiSelectActions, treeNodes]);
 
   return (
     <div className="flex flex-col h-screen bg-background text-foreground">
-      <TitleBar title="-" />
+      <TitleBar 
+        title="-" 
+        onChatToggle={toggleChatPanel}
+        isChatOpen={chatPanelOpen}
+      />
 
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar */}
@@ -330,7 +363,7 @@ function AppContent() {
                       const contextSelectedNodes = selectedNodes && selectedNodes.length > 0 ? selectedNodes : [node];
                       contextMenuActions.show(event, node, contextSelectedNodes);
                     }}
-                    selectedPath={currentFile?.path || ""}
+                    selectedPath={selectedPath}
                     selectedPaths={multiSelectState.selectedPaths}
                     className=""
                     dragDropHandlers={{
@@ -393,6 +426,12 @@ function AppContent() {
             terminalActions={terminalActions}
           />
         </main>
+
+        {/* AI Chat Panel */}
+        <AgentChatPanel 
+          isOpen={chatPanelOpen}
+          onToggle={toggleChatPanel}
+        />
       </div>
 
       <ContextMenu
@@ -410,7 +449,9 @@ function App() {
   const { settings } = useAppStore();
   return (
     <ThemeProvider defaultTheme={settings.theme}>
-      <AppContent />
+      <ChatProvider>
+        <AppContent />
+      </ChatProvider>
     </ThemeProvider>
   );
 }

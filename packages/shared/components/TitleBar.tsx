@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { X, Minus, Square, Copy } from 'lucide-react';
+import { X, Minus, Square, Copy, MessageSquare } from 'lucide-react';
+import { useTheme } from '@shared/theme/ThemeProvider';
 
 interface TitleBarProps {
   title?: string;
   onClose?: () => void;
   onMinimize?: () => void;
   onMaximize?: () => void;
+  onChatToggle?: () => void;
+  isChatOpen?: boolean;
 }
 
 export const TitleBar: React.FC<TitleBarProps> = ({
@@ -13,8 +16,11 @@ export const TitleBar: React.FC<TitleBarProps> = ({
   onClose,
   onMinimize,
   onMaximize,
+  onChatToggle,
+  isChatOpen = false,
 }) => {
   const [isMaximized, setIsMaximized] = useState(false);
+  const { currentTheme } = useTheme();
   
   useEffect(() => {
     // Check initial maximize state
@@ -48,47 +54,67 @@ export const TitleBar: React.FC<TitleBarProps> = ({
 
   return (
     <div 
-      className="bg-gray-100 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-2 select-none"
+      className="bg-card border-b border-border flex items-center justify-between px-2 select-none"
       style={{ WebkitAppRegion: 'drag' } as any}
     >
       {/* Left side - App title */}
-      <div className="flex items-center space-x-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+      <div className="flex items-center space-x-2 text-sm font-medium text-card-foreground">
         <span>{title}</span>
       </div>
+      <div className='flex gap-2'>
+        {/* Chat toggle button */}
+        <div 
+          className="flex items-center"
+          style={{ WebkitAppRegion: 'no-drag' } as any}
+        >
+          <button
+            onClick={onChatToggle}
+            className={`p-2 flex items-center justify-center transition-colors group ${
+              isChatOpen 
+                ? 'bg-primary/20 text-primary' 
+                : 'hover:bg-muted text-muted-foreground hover:text-foreground'
+            }`}
+            title="Toggle AI Chat (Cmd+Shift+A)"
+          >
+            <MessageSquare className="w-4 h-4 opacity-60 group-hover:opacity-100 transition-opacity" />
+          </button>
+        </div>
 
-      {/* Right side - Window controls */}
-      <div 
-        className="flex items-center"
-        style={{ WebkitAppRegion: 'no-drag' } as any}
-      >
-        <button
-          onClick={handleMinimize}
-          className="p-2  flex items-center justify-center transition-colors group"
-          title="Minimize"
+        {/* Right side - Window controls */}
+        <div 
+          className="flex items-center"
+          style={{ WebkitAppRegion: 'no-drag' } as any}
         >
-          <Minus className="w-4 h-4 opacity-60 group-hover:opacity-100 transition-opacity" />
-        </button>
-        
-        <button
-          onClick={handleMaximize}
-          className="p-2 flex items-center justify-center transition-colors duration-100 group"
-          title={isMaximized ? "Restore" : "Maximize"}
-        >
-          {isMaximized ? (
-            <Copy className="w-4 h-4  opacity-60 group-hover:opacity-100 transition-opacity" />
-          ) : (
-            <Square className="w-4 h-4  opacity-60 group-hover:opacity-100 transition-opacity" />
-          )}
-        </button>
-        
-        <button
-          onClick={handleClose}
-          className="p-2 hover:bg-red-600 flex items-center justify-center transition-colors group"
-          title="Close"
-        >
-          <X className="w-4 h-4 opacity-60 group-hover:opacity-100 transition-opacity" />
-        </button>
+          <button
+            onClick={handleMinimize}
+            className="p-2 flex items-center justify-center transition-colors group hover:bg-muted text-muted-foreground hover:text-foreground"
+            title="Minimize"
+          >
+            <Minus className="w-4 h-4 opacity-60 group-hover:opacity-100 transition-opacity" />
+          </button>
+          
+          <button
+            onClick={handleMaximize}
+            className="p-2 flex items-center justify-center transition-colors duration-100 group hover:bg-muted text-muted-foreground hover:text-foreground"
+            title={isMaximized ? "Restore" : "Maximize"}
+          >
+            {isMaximized ? (
+              <Copy className="w-4 h-4 opacity-60 group-hover:opacity-100 transition-opacity" />
+            ) : (
+              <Square className="w-4 h-4 opacity-60 group-hover:opacity-100 transition-opacity" />
+            )}
+          </button>
+          
+          <button
+            onClick={handleClose}
+            className="p-2 hover:bg-destructive hover:text-destructive-foreground flex items-center justify-center transition-colors group text-muted-foreground"
+            title="Close"
+          >
+            <X className="w-4 h-4 opacity-60 group-hover:opacity-100 transition-opacity" />
+          </button>
+        </div>
       </div>
+
     </div>
   );
 }; 

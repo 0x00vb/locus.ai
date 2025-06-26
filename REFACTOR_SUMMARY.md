@@ -84,7 +84,7 @@ packages/
 | Terminal | `packages/app/components/` | `packages/features/terminal/` | User-facing feature |
 | Tab management | `packages/ui/components/` | `packages/features/tabs/` | User-facing feature |
 | Status bar | `packages/ui/components/` | `packages/features/statusBar/` | User-facing feature |
-| LSP/Terminal services | `packages/app/electron/` | `packages/shared/services/` | Shared services |
+| Terminal services | `packages/app/electron/` | `packages/shared/services/` | Shared services |
 | Build configs | `packages/app/` | `packages/config/` | Project configuration |
 
 #### **5. Import Path Fixes**

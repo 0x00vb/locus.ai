@@ -1,12 +1,12 @@
 /**
- * Editor Component - Monaco Editor with LSP Integration
+ * Editor Component - Monaco Editor
  * 
- * Migration Notes:
- * - Replaced @uiw/react-textarea-code-editor with Monaco Editor for better performance and features
- * - Maintained all existing functionality: syntax highlighting, keyboard shortcuts, theming
- * - Added LSP integration for IntelliSense: autocompletion, hover, signature help, go-to-definition
- * - LSP features are lazy-loaded and only enabled for supported languages
- * - WebSocket-based communication with LSP servers in main process
+ * Features:
+ * - Monaco Editor integration with syntax highlighting
+ * - Custom theming support
+ * - Keyboard shortcuts (Ctrl+S for save)
+ * - Auto-save functionality
+ * - Multi-language support based on file extensions
  */
 
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
@@ -21,13 +21,6 @@ declare global {
   }
 }
 
-// LSP-supported languages and their file extensions
-const LSP_LANGUAGES = {
-  typescript: ['.ts', '.tsx'],
-  javascript: ['.js', '.jsx'], 
-  python: ['.py', '.pyw']
-};
-
 const getLanguageFromExtension = (filePath: string): string => {
   const ext = filePath.split('.').pop()?.toLowerCase() || '';
   const map: Record<string, string> = {
@@ -38,24 +31,6 @@ const getLanguageFromExtension = (filePath: string): string => {
     hpp: 'cpp', md: 'markdown', txt: 'plaintext', doc: 'plaintext', rtf: 'plaintext'
   };
   return map[ext] || 'plaintext';
-};
-
-// Check if language supports LSP
-const isLSPSupported = (language: string): boolean => {
-  return language in LSP_LANGUAGES;
-};
-
-// Get LSP language from file path
-const getLSPLanguageFromPath = (filePath: string): string | null => {
-  const ext = '.' + (filePath.split('.').pop()?.toLowerCase() || '');
-  
-  for (const [language, extensions] of Object.entries(LSP_LANGUAGES)) {
-    if (extensions.includes(ext)) {
-      return language;
-    }
-  }
-  
-  return null;
 };
 
 export interface EditorProps {
@@ -76,351 +51,88 @@ export const CodeEditor: React.FC<EditorProps> = ({
   const [content, setContent] = useState(initialContent);
   const theme = useTheme();
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
-  const lspConnection = useRef<WebSocket | null>(null);
-  const [lspPort, setLSPPort] = useState<number | null>(null);
-
-  // Update content when initialContent changes (file switching)
+  
+  // Update refs when values change
+  const currentContentRef = useRef(initialContent);
+  const filePathRef = useRef(filePath);
+  
   useEffect(() => {
-    setContent(initialContent);
-  }, [initialContent]);
-
-  // LSP Port initialization
+    currentContentRef.current = content;
+  }, [content]);
+  
   useEffect(() => {
-    if (window.api?.lsp) {
-      // Listen for LSP port
-      window.api.lsp.onPortAvailable((port: number) => {
-        setLSPPort(port);
-      });
+    filePathRef.current = filePath;
+  }, [filePath]);
 
-      // Try to get port immediately
-      window.api.lsp.getPort().then(port => {
-        if (port) setLSPPort(port);
-      }).catch(console.error);
-
-      return () => {
-        window.api?.lsp?.removePortListener();
-      };
-    }
-  }, []);
-
-  // Setup LSP connection for supported languages
+  // Stabilize content updates to prevent Monaco focus loss
   useEffect(() => {
-    const language = getLanguageFromExtension(filePath);
-    const lspLanguage = getLSPLanguageFromPath(filePath);
-    
-    if (!lspLanguage || !lspPort || !editorRef.current) {
-      return;
-    }
-
-    console.log(`Setting up LSP for ${lspLanguage} (${language})`);
-    
-    // Create WebSocket connection
-    const ws = new WebSocket(`ws://localhost:${lspPort}?language=${lspLanguage}`);
-    lspConnection.current = ws;
-
-    ws.onopen = () => {
-      console.log(`LSP connected for ${lspLanguage}`);
+    // Only update if content actually changed and editor exists
+    if (initialContent !== content && editorRef.current) {
+      const editor = editorRef.current;
+      const model = editor.getModel();
       
-      // Initialize LSP session
-      const initMessage = {
-        jsonrpc: '2.0',
-        id: 1,
-        method: 'initialize',
-        params: {
-          processId: null,
-          clientInfo: { name: 'Notty', version: '1.0.0' },
-          capabilities: {
-            textDocument: {
-              completion: {
-                dynamicRegistration: false,
-                completionItem: {
-                  snippetSupport: true,
-                  commitCharactersSupport: true,
-                }
-              },
-              hover: { dynamicRegistration: false },
-              signatureHelp: { dynamicRegistration: false },
-              definition: { dynamicRegistration: false },
+      if (model) {
+        // Preserve cursor position during content update
+        const position = editor.getPosition();
+        const selection = editor.getSelection();
+        
+        // Update content without triggering onChange
+        editor.setValue(initialContent);
+        setContent(initialContent);
+        
+        // Restore cursor position and selection if they're valid
+        if (position && selection) {
+          // Use a micro-task to ensure the content is set before restoring position
+          requestAnimationFrame(() => {
+            if (editor.getModel()) {
+              try {
+                editor.setPosition(position);
+                editor.setSelection(selection);
+                editor.focus();
+              } catch (e) {
+                // If position is invalid, just focus the editor
+                editor.focus();
+              }
             }
-          },
-          workspaceFolders: null,
+          });
         }
-      };
-      
-      ws.send(JSON.stringify(initMessage));
-    };
-
-    ws.onmessage = (event) => {
-      try {
-        const message = JSON.parse(event.data);
-        handleLSPMessage(message, lspLanguage);
-      } catch (error) {
-        console.error('Failed to parse LSP message:', error);
       }
-    };
-
-    ws.onerror = (error) => {
-      console.error(`LSP connection error for ${lspLanguage}:`, error);
-    };
-
-    ws.onclose = () => {
-      console.log(`LSP disconnected for ${lspLanguage}`);
-    };
-
-    return () => {
-      if (lspConnection.current) {
-        lspConnection.current.close();
-        lspConnection.current = null;
-      }
-    };
-  }, [filePath, lspPort]);
-
-  // Handle LSP messages
-  const handleLSPMessage = useCallback((message: any, language: string) => {
-    if (!editorRef.current) return;
-
-    // Handle initialization response
-    if (message.id === 1 && message.method === undefined) {
-      // Send initialized notification
-      const initializedMessage = {
-        jsonrpc: '2.0',
-        method: 'initialized',
-        params: {}
-      };
-      
-      lspConnection.current?.send(JSON.stringify(initializedMessage));
-      
-      // Notify document opened
-      const docOpenMessage = {
-        jsonrpc: '2.0',
-        method: 'textDocument/didOpen',
-        params: {
-          textDocument: {
-            uri: `file://${filePath}`,
-            languageId: language,
-            version: 1,
-            text: content
-          }
-        }
-      };
-      
-      lspConnection.current?.send(JSON.stringify(docOpenMessage));
+    } else if (initialContent !== content) {
+      // If editor doesn't exist yet, just update state
+      setContent(initialContent);
     }
-
-    // Handle completion responses
-    if (message.result && message.result.items) {
-      // Monaco will handle completion items through providers
-      console.log('Received completion items:', message.result.items.length);
-    }
-
-    // Handle hover responses
-    if (message.result && message.result.contents) {
-      console.log('Received hover info:', message.result.contents);
-    }
-  }, [filePath, content]);
-
-  // Store cleanup handlers to prevent memory leaks
-  const cleanupHandlersRef = useRef(new Set<() => void>());
-  const disposablesRef = useRef<import('monaco-editor').IDisposable[]>([]);
+  }, [initialContent]);
 
   // Handle Monaco Editor mount
   const handleEditorMount = useCallback((editor: editor.IStandaloneCodeEditor, monaco: typeof import('monaco-editor')) => {
     editorRef.current = editor;
     
-    // Clear previous disposables
-    disposablesRef.current.forEach(d => d.dispose());
-    disposablesRef.current = [];
+    // Ensure proper text direction and prevent RTL issues
+    const domNode = editor.getDomNode();
+    if (domNode) {
+      domNode.style.direction = 'ltr';
+      domNode.style.textAlign = 'left';
+      
+      // Force all input elements to LTR
+      const textAreas = domNode.querySelectorAll('textarea');
+      textAreas.forEach(textarea => {
+        textarea.style.direction = 'ltr';
+        textarea.style.textAlign = 'left';
+      });
+    }
     
     // Add custom keyboard shortcuts
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {
       onSave();
     });
 
-    // Add Go to Definition (F12)
-    editor.addCommand(monaco.KeyCode.F12, () => {
-      const position = editor.getPosition();
-      if (position && lspConnection.current) {
-        const message = {
-          jsonrpc: '2.0',
-          id: Date.now(),
-          method: 'textDocument/definition',
-          params: {
-            textDocument: { uri: `file://${filePath}` },
-            position: { line: position.lineNumber - 1, character: position.column - 1 }
-          }
-        };
-        lspConnection.current.send(JSON.stringify(message));
+    // Focus the editor in a stable way
+    requestAnimationFrame(() => {
+      if (editor.getModel()) {
+        editor.focus();
       }
     });
-
-    // Setup completion provider for LSP-supported languages
-    const language = getLanguageFromExtension(filePath);
-    const lspLanguage = getLSPLanguageFromPath(filePath);
-    
-    if (lspLanguage) {
-      const completionProvider = monaco.languages.registerCompletionItemProvider(language, {
-        provideCompletionItems: async (_model, position) => {
-          if (!lspConnection.current || lspConnection.current.readyState !== WebSocket.OPEN) {
-            return { suggestions: [] };
-          }
-
-          return new Promise((resolve) => {
-            const requestId = Date.now();
-            
-            const message = {
-              jsonrpc: '2.0',
-              id: requestId,
-              method: 'textDocument/completion',
-              params: {
-                textDocument: { uri: `file://${filePath}` },
-                position: { line: position.lineNumber - 1, character: position.column - 1 }
-              }
-            };
-
-            // Timeout for completion request
-            const timeout = setTimeout(() => {
-              resolve({ suggestions: [] });
-            }, 1000);
-
-            // Handle response
-            const handler = (event: MessageEvent) => {
-              try {
-                const response = JSON.parse(event.data);
-                if (response.id === requestId) {
-                  clearTimeout(timeout);
-                  lspConnection.current?.removeEventListener('message', handler);
-                  cleanupHandlersRef.current.delete(() => {
-                    clearTimeout(timeout);
-                    lspConnection.current?.removeEventListener('message', handler);
-                  });
-                  
-                  const suggestions = response.result?.items?.map((item: any) => ({
-                    label: item.label,
-                    kind: monaco.languages.CompletionItemKind.Text,
-                    insertText: item.insertText || item.label,
-                    detail: item.detail,
-                    documentation: item.documentation,
-                  })) || [];
-                  
-                  resolve({ suggestions });
-                }
-              } catch (error) {
-                clearTimeout(timeout);
-                lspConnection.current?.removeEventListener('message', handler);
-                cleanupHandlersRef.current.delete(() => {
-                  clearTimeout(timeout);
-                  lspConnection.current?.removeEventListener('message', handler);
-                });
-                resolve({ suggestions: [] });
-              }
-            };
-
-            // Add cleanup handler to set
-            const cleanup = () => {
-              clearTimeout(timeout);
-              lspConnection.current?.removeEventListener('message', handler);
-            };
-            cleanupHandlersRef.current.add(cleanup);
-
-            lspConnection.current?.addEventListener('message', handler);
-            lspConnection.current?.send(JSON.stringify(message));
-          });
-        }
-      });
-
-      // Setup hover provider
-      const hoverProvider = monaco.languages.registerHoverProvider(language, {
-        provideHover: async (_model, position) => {
-          if (!lspConnection.current || lspConnection.current.readyState !== WebSocket.OPEN) {
-            return null;
-          }
-
-          return new Promise((resolve) => {
-            const requestId = Date.now();
-            
-            const message = {
-              jsonrpc: '2.0',
-              id: requestId,
-              method: 'textDocument/hover',
-              params: {
-                textDocument: { uri: `file://${filePath}` },
-                position: { line: position.lineNumber - 1, character: position.column - 1 }
-              }
-            };
-
-            const timeout = setTimeout(() => {
-              resolve(null);
-            }, 1000);
-
-            const handler = (event: MessageEvent) => {
-              try {
-                const response = JSON.parse(event.data);
-                if (response.id === requestId) {
-                  clearTimeout(timeout);
-                  lspConnection.current?.removeEventListener('message', handler);
-                  cleanupHandlersRef.current.delete(() => {
-                    clearTimeout(timeout);
-                    lspConnection.current?.removeEventListener('message', handler);
-                  });
-                  
-                  if (response.result?.contents) {
-                    const contents = Array.isArray(response.result.contents) 
-                      ? response.result.contents 
-                      : [response.result.contents];
-                    
-                    resolve({
-                      contents: contents.map((content: any) => ({
-                        value: typeof content === 'string' ? content : content.value || ''
-                      }))
-                    });
-                  } else {
-                    resolve(null);
-                  }
-                }
-              } catch (error) {
-                clearTimeout(timeout);
-                lspConnection.current?.removeEventListener('message', handler);
-                cleanupHandlersRef.current.delete(() => {
-                  clearTimeout(timeout);
-                  lspConnection.current?.removeEventListener('message', handler);
-                });
-                resolve(null);
-              }
-            };
-
-            // Add cleanup handler to set
-            const cleanup = () => {
-              clearTimeout(timeout);
-              lspConnection.current?.removeEventListener('message', handler);
-            };
-            cleanupHandlersRef.current.add(cleanup);
-
-            lspConnection.current?.addEventListener('message', handler);
-            lspConnection.current?.send(JSON.stringify(message));
-          });
-        }
-      });
-
-      // Store disposables for cleanup
-      disposablesRef.current.push(completionProvider, hoverProvider);
-    }
-
-    // Focus the editor
-    editor.focus();
-  }, [onSave, filePath]);
-
-  // Cleanup effect for LSP resources
-  useEffect(() => {
-    return () => {
-      // Clean up all pending handlers
-      cleanupHandlersRef.current.forEach(cleanup => cleanup());
-      cleanupHandlersRef.current.clear();
-      
-      // Dispose Monaco providers
-      disposablesRef.current.forEach(d => d.dispose());
-      disposablesRef.current = [];
-    };
-  }, [filePath]);
+  }, [onSave]);
 
   // Handle content changes
   const handleChange = useCallback((value: string | undefined) => {
@@ -428,26 +140,9 @@ export const CodeEditor: React.FC<EditorProps> = ({
     setContent(newContent);
     onChange(newContent);
 
-    // Notify LSP of document changes
-    if (lspConnection.current && lspConnection.current.readyState === WebSocket.OPEN) {
-      const lspLanguage = getLSPLanguageFromPath(filePath);
-      if (lspLanguage) {
-        const message = {
-          jsonrpc: '2.0',
-          method: 'textDocument/didChange',
-          params: {
-            textDocument: {
-              uri: `file://${filePath}`,
-              version: Date.now()
-            },
-            contentChanges: [{ text: newContent }]
-          }
-        };
-        
-        lspConnection.current.send(JSON.stringify(message));
-      }
-    }
-  }, [onChange, filePath]);
+    // Update ref immediately
+    currentContentRef.current = newContent;
+  }, [onChange]);
 
   // Memoize computed values for performance
   const computedValues = useMemo(() => {
@@ -490,7 +185,7 @@ export const CodeEditor: React.FC<EditorProps> = ({
       verticalScrollbarSize: 10,
       horizontalScrollbarSize: 10,
     },
-    // IntelliSense settings
+    // IntelliSense settings (built-in Monaco features only)
     quickSuggestions: true,
     suggestOnTriggerCharacters: true,
     acceptSuggestionOnEnter: 'on',
@@ -569,7 +264,14 @@ export const CodeEditor: React.FC<EditorProps> = ({
 
   return (
     <div className={`flex flex-col h-screen ${className}`}>
-      <div className="flex-1 overflow-hidden">
+      <div 
+        className="flex-1 overflow-hidden"
+        style={{
+          direction: 'ltr',
+          textAlign: 'left',
+          unicodeBidi: 'bidi-override'
+        }}
+      >
         <Editor
           value={content}
           language={computedValues.language}

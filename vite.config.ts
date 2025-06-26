@@ -3,6 +3,10 @@ import react from '@vitejs/plugin-react';
 import electron from 'vite-plugin-electron';
 import renderer from 'vite-plugin-electron-renderer';
 import { resolve } from 'path';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 // https://vitejs.dev/config/
 export default defineConfig({
@@ -29,6 +33,8 @@ export default defineConfig({
           resolve: {
             alias: {
               '@app': resolve(__dirname, 'packages/app'),
+              '@app-main': resolve(__dirname, 'packages/app/main'),
+              '@app-renderer': resolve(__dirname, 'packages/app/renderer'),
               '@domains': resolve(__dirname, 'packages/domains'),
               '@features': resolve(__dirname, 'packages/features'), 
               '@shared': resolve(__dirname, 'packages/shared'),
@@ -54,6 +60,8 @@ export default defineConfig({
           resolve: {
             alias: {
               '@app': resolve(__dirname, 'packages/app'),
+              '@app-main': resolve(__dirname, 'packages/app/main'),
+              '@app-renderer': resolve(__dirname, 'packages/app/renderer'),
               '@domains': resolve(__dirname, 'packages/domains'),
               '@features': resolve(__dirname, 'packages/features'), 
               '@shared': resolve(__dirname, 'packages/shared'),
@@ -67,6 +75,8 @@ export default defineConfig({
   resolve: {
     alias: {
       '@app': resolve(__dirname, 'packages/app'),
+      '@app-main': resolve(__dirname, 'packages/app/main'),
+      '@app-renderer': resolve(__dirname, 'packages/app/renderer'),
       '@domains': resolve(__dirname, 'packages/domains'),
       '@features': resolve(__dirname, 'packages/features'), 
       '@shared': resolve(__dirname, 'packages/shared'),

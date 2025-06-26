@@ -4,7 +4,21 @@ import * as path from 'node:path';
 import * as os from 'node:os';
 import { FileSystemService } from '@domains/fileSystem';
 import { TerminalService } from '@shared/services/terminal';
-import { LSPServerManager } from '@shared/services/lsp-server';
+import { spawn, ChildProcess } from 'child_process';
+import { EmbeddingsDatabase } from './agent/db/database';
+import { agentService } from './agent/agentService';
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('=== Unhandled Promise Rejection ===');
+  console.error('Promise:', promise);
+  console.error('Reason:', reason);
+});
+
+process.on('uncaughtException', (err) => {
+  console.error('=== Uncaught Exception ===');
+  console.error(err);
+});
+
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -31,8 +45,8 @@ let fileSystemService = new FileSystemService(currentWorkspace);
 // Initialize TerminalService
 let terminalService = new TerminalService();
 
-// Initialize LSP Server Manager
-let lspServerManager = new LSPServerManager();
+// Embeddings database instance
+let embeddingsDatabase: EmbeddingsDatabase | null = null;
 
 function createWindow() {
   const distPath = process.env.DIST || path.join(__dirname, '../dist');
@@ -88,17 +102,17 @@ function createWindow() {
 app.whenReady().then(async () => {
   createWindow();
 
-  // Initialize LSP server with WebSocket port
+  // Initialize agent service with current workspace
   try {
-    const lspPort = await lspServerManager.initialize();
-    console.log(`LSP server initialized on port ${lspPort}`);
-    
-    // Send LSP port to renderer process when window is ready
-    win?.webContents.once('did-finish-load', () => {
-      win?.webContents.send('lsp-port', lspPort);
+    await agentService.initialize({
+      projectRoot: currentWorkspace,
+      ollamaBaseUrl: 'http://localhost:11434',
+      embeddingModel: 'nomic-embed-text',
+      dbPath: path.join(currentWorkspace, '.vscode', 'embeddings.json'),
+      chunkSize: 1000
     });
   } catch (error) {
-    console.error('Failed to initialize LSP server:', error);
+    console.warn('Failed to initialize agent service:', error);
   }
 
   app.on('activate', () => {
@@ -246,15 +260,16 @@ function registerIpcHandler(channel: string, handler: any) {
   ipcHandlers.set(channel, handler);
 }
 
-// Cleanup LSP servers when app is quitting
+// Cleanup when app is quitting
 app.on('before-quit', async () => {
-  await lspServerManager.cleanup();
-  
   // Clean up all IPC handlers
   ipcHandlers.forEach((_handler, channel) => {
     ipcMain.removeHandler(channel);
   });
   ipcHandlers.clear();
+
+  // Clean up terminals on app quit
+  terminalService.closeAllTerminals();
 });
 
 // Core FileSystem Service IPC handlers
@@ -534,20 +549,162 @@ ipcMain.handle('terminal:close', (_, id: string) => {
   terminalService.closeTerminal(id);
 });
 
+// Embeddings database IPC handlers
+registerIpcHandler('embeddings:init', async (_event: any, dbPath: string) => {
+  try {
+    embeddingsDatabase = new EmbeddingsDatabase(dbPath);
+    await embeddingsDatabase.init();
+  } catch (error) {
+    console.error('Failed to initialize embeddings database:', error);
+    throw error;
+  }
+});
+
+registerIpcHandler('embeddings:close', async (_event: any) => {
+  try {
+    if (embeddingsDatabase) {
+      await embeddingsDatabase.close();
+      embeddingsDatabase = null;
+    }
+  } catch (error) {
+    console.error('Failed to close embeddings database:', error);
+    throw error;
+  }
+});
+
+registerIpcHandler('embeddings:insertEmbedding', async (_event: any, record: any) => {
+  try {
+    if (!embeddingsDatabase) {
+      throw new Error('Embeddings database not initialized');
+    }
+    await embeddingsDatabase.insertEmbedding(record);
+  } catch (error) {
+    console.error('Failed to insert embedding:', error);
+    throw error;
+  }
+});
+
+registerIpcHandler('embeddings:getEmbeddingsByPath', async (_event: any, filePath: string) => {
+  try {
+    if (!embeddingsDatabase) {
+      throw new Error('Embeddings database not initialized');
+    }
+    return await embeddingsDatabase.getEmbeddingsByPath(filePath);
+  } catch (error) {
+    console.error('Failed to get embeddings by path:', error);
+    throw error;
+  }
+});
+
+registerIpcHandler('embeddings:deleteEmbeddingsByPath', async (_event: any, filePath: string) => {
+  try {
+    if (!embeddingsDatabase) {
+      throw new Error('Embeddings database not initialized');
+    }
+    await embeddingsDatabase.deleteEmbeddingsByPath(filePath);
+  } catch (error) {
+    console.error('Failed to delete embeddings by path:', error);
+    throw error;
+  }
+});
+
+registerIpcHandler('embeddings:getAllEmbeddings', async (_event: any) => {
+  try {
+    if (!embeddingsDatabase) {
+      throw new Error('Embeddings database not initialized');
+    }
+    return await embeddingsDatabase.getAllEmbeddings();
+  } catch (error) {
+    console.error('Failed to get all embeddings:', error);
+    throw error;
+  }
+});
+
+registerIpcHandler('embeddings:clearAllEmbeddings', async (_event: any) => {
+  try {
+    if (!embeddingsDatabase) {
+      throw new Error('Embeddings database not initialized');
+    }
+    await embeddingsDatabase.clearAllEmbeddings();
+  } catch (error) {
+    console.error('Failed to clear all embeddings:', error);
+    throw error;
+  }
+});
+
 ipcMain.handle('terminal:list', () => {
   return terminalService.getActiveTerminals();
 });
 
-// LSP IPC handlers
-ipcMain.handle('lsp:isLanguageSupported', (_, language: string) => {
-  return lspServerManager.isLanguageSupported(language);
+// Agent Service IPC handlers
+registerIpcHandler('agent:processCodebase', async (_event: any) => {
+  try {
+    return await agentService.processCodebase();
+  } catch (error) {
+    console.error('Failed to process codebase:', error);
+    throw error;
+  }
 });
 
-ipcMain.handle('lsp:getPort', () => {
-  return lspServerManager.getPort();
+registerIpcHandler('agent:searchSimilar', async (_event: any, query: string, limit: number = 10) => {
+  try {
+    return await agentService.searchSimilar(query, limit);
+  } catch (error) {
+    console.error('Failed to search similar:', error);
+    throw error;
+  }
 });
 
-// Clean up terminals on app quit
-app.on('before-quit', () => {
-  terminalService.closeAllTerminals();
+registerIpcHandler('agent:getStats', async (_event: any) => {
+  try {
+    return await agentService.getStats();
+  } catch (error) {
+    console.error('Failed to get agent stats:', error);
+    throw error;
+  }
+});
+
+registerIpcHandler('agent:rebuild', async (_event: any) => {
+  try {
+    return await agentService.rebuild();
+  } catch (error) {
+    console.error('Failed to rebuild embeddings:', error);
+    throw error;
+  }
+});
+
+registerIpcHandler('agent:getFileList', async (_event: any, baseDir: string = '.', extensions?: string[]) => {
+  try {
+    return await agentService.getFileList(baseDir, extensions);
+  } catch (error) {
+    console.error('Failed to get file list:', error);
+    throw error;
+  }
+});
+
+registerIpcHandler('agent:readFileContent', async (_event: any, filePath: string) => {
+  try {
+    return await agentService.readFileContent(filePath);
+  } catch (error) {
+    console.error('Failed to read file content:', error);
+    throw error;
+  }
+});
+
+registerIpcHandler('agent:updateConfig', async (_event: any, config: any) => {
+  try {
+    return await agentService.updateConfig(config);
+  } catch (error) {
+    console.error('Failed to update agent config:', error);
+    throw error;
+  }
+});
+
+registerIpcHandler('agent:getConfig', async (_event: any) => {
+  try {
+    return agentService.getConfig();
+  } catch (error) {
+    console.error('Failed to get agent config:', error);
+    throw error;
+  }
 }); 

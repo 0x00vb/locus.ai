@@ -47,6 +47,8 @@ interface AppState {
   searchQuery: string;
   settings: AppSettings;
   recentNotes: string[];
+  // Chat panel state
+  chatPanelOpen: boolean;
 }
 
 export interface AppStore extends AppState {
@@ -65,6 +67,10 @@ export interface AppStore extends AppState {
   setSearchQuery: (query: string) => void;
   updateSettings: (settings: Partial<AppSettings>) => void;
   addToRecentNotes: (noteId: string) => void;
+  
+  // Chat panel actions
+  toggleChatPanel: () => void;
+  setChatPanelOpen: (open: boolean) => void;
 }
 
 export const useAppStore = create<AppStore>((set, get) => ({
@@ -76,6 +82,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
   searchQuery: '',
   settings: defaultSettings,
   recentNotes: [],
+  chatPanelOpen: false,
 
   // Actions
   addNote: (noteData) => {
@@ -177,5 +184,16 @@ export const useAppStore = create<AppStore>((set, get) => ({
         recentNotes: [noteId, ...filtered].slice(0, 10), // Keep only 10 recent notes
       };
     });
+  },
+
+  // Chat panel actions
+  toggleChatPanel: () => {
+    set((state) => ({
+      chatPanelOpen: !state.chatPanelOpen,
+    }));
+  },
+
+  setChatPanelOpen: (open) => {
+    set({ chatPanelOpen: open });
   },
 })); 

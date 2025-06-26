@@ -91,7 +91,6 @@ export class NoteOperations {
     try {
       const result = await IPCService.writeNote(filePath, content);
       if (result) {
-        await this.callbacks.onFileTreeUpdate();
         return true;
       }
       return false;

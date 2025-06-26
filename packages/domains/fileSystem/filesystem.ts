@@ -124,40 +124,71 @@ export class FileSystemService {
     const items: FileSystemItem[] = [];
 
     for (const file of files) {
-      const fullPath = path.join(dirPath, file.name);
-      const itemRelativePath = path.join(relativePath, file.name);
-      const stats = await fs.stat(fullPath);
-
-      if (file.isDirectory()) {
-        // This is a folder
-        const children = await this.buildFileSystemTree(fullPath, itemRelativePath);
-        items.push({
-          id: this.generateIdFromPath(fullPath),
-          name: file.name,
-          path: fullPath,
-          type: 'folder',
-          createdAt: stats.birthtime,
-          updatedAt: stats.mtime,
-          children: children,
-        });
-      } else if (file.isFile()) {
-        // Include more file types - all text-based files
-        const validExtensions = ['.md', '.txt', '.js', '.ts', '.py', '.json', '.html', '.css', '.yaml', '.yml', '.xml', '.sh', '.bash', '.php', '.rb', '.go', '.rs', '.java', '.c', '.cpp', '.h', '.hpp'];
-        const hasValidExtension = validExtensions.some(ext => file.name.toLowerCase().endsWith(ext)) || !file.name.includes('.');
+      try {
+        const fullPath = path.join(dirPath, file.name);
+        const itemRelativePath = path.join(relativePath, file.name);
         
-        if (hasValidExtension) {
-          // This is a valid file
-          const metadata = await this.getNoteMetadata(fullPath);
-          items.push({
-            id: metadata.id,
-            name: file.name, // Use actual filename with extension
-            path: fullPath,
-            type: 'file',
-            createdAt: stats.birthtime,
-            updatedAt: stats.mtime,
-            size: stats.size,
-          });
+        // Skip hidden files and directories that commonly cause issues
+        if (file.name.startsWith('.') && file.name !== '.md' && file.name !== '.txt') {
+          continue;
         }
+        
+        let stats;
+        try {
+          stats = await fs.stat(fullPath);
+        } catch (statError) {
+          // Skip files we can't stat (permissions, broken symlinks, etc.)
+          console.warn(`Skipping file ${fullPath}: ${statError instanceof Error ? statError.message : 'Unknown error'}`);
+          continue;
+        }
+
+        if (file.isDirectory()) {
+          // This is a folder
+          try {
+            const children = await this.buildFileSystemTree(fullPath, itemRelativePath);
+            items.push({
+              id: this.generateIdFromPath(fullPath),
+              name: file.name,
+              path: fullPath,
+              type: 'folder',
+              createdAt: stats.birthtime,
+              updatedAt: stats.mtime,
+              children: children,
+            });
+          } catch (dirError) {
+            // Skip directories we can't read
+            console.warn(`Skipping directory ${fullPath}: ${dirError instanceof Error ? dirError.message : 'Unknown error'}`);
+            continue;
+          }
+        } else if (file.isFile()) {
+          // Include more file types - all text-based files
+          const validExtensions = ['.md', '.txt', '.js', '.ts', '.py', '.json', '.html', '.css', '.yaml', '.yml', '.xml', '.sh', '.bash', '.php', '.rb', '.go', '.rs', '.java', '.c', '.cpp', '.h', '.hpp'];
+          const hasValidExtension = validExtensions.some(ext => file.name.toLowerCase().endsWith(ext)) || !file.name.includes('.');
+          
+          if (hasValidExtension) {
+            // This is a valid file
+            try {
+              const metadata = await this.getNoteMetadata(fullPath);
+              items.push({
+                id: metadata.id,
+                name: file.name, // Use actual filename with extension
+                path: fullPath,
+                type: 'file',
+                createdAt: stats.birthtime,
+                updatedAt: stats.mtime,
+                size: stats.size,
+              });
+            } catch (metadataError) {
+              // Skip files we can't read metadata for
+              console.warn(`Skipping file metadata for ${fullPath}: ${metadataError instanceof Error ? metadataError.message : 'Unknown error'}`);
+              continue;
+            }
+          }
+        }
+      } catch (error) {
+        // Skip any file/directory that causes unexpected errors
+        console.warn(`Skipping item ${file.name}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        continue;
       }
     }
 

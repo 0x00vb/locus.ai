@@ -1,12 +1,14 @@
 import React from 'react';
 import { X } from 'lucide-react';
 import type { TabData } from '@shared/hooks/useTabManager';
+import type { SplitPane } from '@features/tabs/useSplitTabManager';
 
 export interface TabItemProps {
   tab: TabData;
   isActive: boolean;
   onSelect: (id: string) => void;
   onClose: (id: string) => void;
+  pane?: SplitPane; // Which pane this tab is in
 }
 
 export const TabItem: React.FC<TabItemProps> = React.memo(({
@@ -14,6 +16,7 @@ export const TabItem: React.FC<TabItemProps> = React.memo(({
   isActive,
   onSelect,
   onClose,
+  pane = 'left',
 }) => {
   const handleClick = () => {
     onSelect(tab.id);
@@ -22,6 +25,24 @@ export const TabItem: React.FC<TabItemProps> = React.memo(({
   const handleClose = (e: React.MouseEvent) => {
     e.stopPropagation();
     onClose(tab.id);
+  };
+
+  // Drag handlers for tab splitting
+  const handleDragStart = (e: React.DragEvent) => {
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('tab/id', tab.id);
+    e.dataTransfer.setData('tab/fromPane', pane);
+    // Optionally, set a custom drag image
+    const dragImage = document.createElement('div');
+    dragImage.textContent = tab.name;
+    dragImage.className = 'px-2 py-1 bg-blue-100 border border-blue-300 rounded text-sm';
+    dragImage.style.position = 'absolute';
+    dragImage.style.top = '-1000px';
+    document.body.appendChild(dragImage);
+    e.dataTransfer.setDragImage(dragImage, 0, 0);
+    setTimeout(() => {
+      document.body.removeChild(dragImage);
+    }, 0);
   };
 
   return (
@@ -34,9 +55,13 @@ export const TabItem: React.FC<TabItemProps> = React.memo(({
           ? 'bg-background border-b-2 border-b-primary text-foreground' 
           : 'bg-muted/20 text-muted-foreground hover:text-foreground'
         }
+        draggable-tab
       `}
       onClick={handleClick}
       title={tab.path}
+      draggable
+      onDragStart={handleDragStart}
+      style={{ opacity: isActive ? 0.85 : 1 }}
     >
       {/* File name with unsaved indicator */}
       <span className="truncate text-sm font-medium flex items-center gap-1">
@@ -71,7 +96,8 @@ export const TabItem: React.FC<TabItemProps> = React.memo(({
     prevProps.tab.isDirty === nextProps.tab.isDirty && // Include isDirty for orange dot
     prevProps.isActive === nextProps.isActive &&
     prevProps.onSelect === nextProps.onSelect &&
-    prevProps.onClose === nextProps.onClose
+    prevProps.onClose === nextProps.onClose &&
+    prevProps.pane === nextProps.pane
   );
 });
 

@@ -1,1 +1,2 @@
-export * from './TabbedNoteEditor'; 
+export * from './TabbedNoteEditor';
+export * from './useSplitTabManager'; 
