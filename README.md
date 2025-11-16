@@ -1,4 +1,4 @@
-# 🗒️ Notty - Cross-Platform Desktop Notes Application
+# 🗒️ Locus - Cross-Platform Desktop Notes Application
 
 A beautiful, modern notes application built with Electron, React, and TypeScript. Featuring a powerful file tree manager and Monaco editor for an exceptional note-taking experience.
 
@@ -23,8 +23,8 @@ A beautiful, modern notes application built with Electron, React, and TypeScript
 
 1. **Clone the repository**
 ```bash
-git clone https://github.com/notty/notty.git
-cd notty
+git clone https://github.com/Locus/Locus.git
+cd Locus
 ```
 
 2. **Install dependencies**
@@ -67,7 +67,7 @@ npm run build
 
 ### Project Structure
 ```
-notty/
+Locus/
 ├── packages/
 │   ├── app/              # Main Electron app
 │   │   ├── main/         # Electron main process
